@@ -1,141 +1,247 @@
 // src/App.tsx
 import React, { useEffect, useState, useRef } from 'react';
 import './App.css';
+import MIDINoteMap from './components/MIDINoteMap';
 import SoundGenerator from './components/SoundGenerator';
-import VirtualKeyboard from './components/VirtualKeyboard';
+import DefaultColorsSettings from './components/DefaultColorsSettings';
+import ThemeToggle from './components/ThemeToggle';
+import GridKeyboard from './components/GridKeyboard';
+import IsomorphicKeyboardGenerator from './components/IsomorphicKeyboardGenerator';
+import { KeyState, MIDIDevice, NoteState, SoundSettings } from './types';
+import { Note, LaunchpadColor, NoteMap, noteToString, isBlackNote, DEFAULT_MAPPINGS } from './types/notes';
 
-interface MIDIDevice {
-  id: string;
-  name: string;
-  manufacturer: string;
-  connection: string;
-  type: string;
-}
-
-interface MIDILog {
-  timestamp: number;
-  type: string;
-  data: number[];
-  description: string;
-}
-
-interface NoteState {
-  [key: number]: boolean;
-}
-
-// Sound settings interface
-export interface SoundSettings {
-  waveform: OscillatorType;
-  attack: number;
-  decay: number;
-  sustain: number;
-  release: number;
-  volume: number;
+interface ColorSettings {
+  whiteRest: LaunchpadColor;
+  whitePressed: LaunchpadColor;
+  blackRest: LaunchpadColor;
+  blackPressed: LaunchpadColor;
 }
 
 const App: React.FC = () => {
   const [midiAccess, setMidiAccess] = useState<WebMidi.MIDIAccess | null>(null);
-  const [midiError, setMidiError] = useState<string>('');
-  const [devices, setDevices] = useState<MIDIDevice[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<string>('');
-  const [logs, setLogs] = useState<MIDILog[]>([]);
+  const [inputDevices, setInputDevices] = useState<MIDIDevice[]>([]);
+  const [outputDevices, setOutputDevices] = useState<MIDIDevice[]>([]);
+  const [selectedInputDevice, setSelectedInputDevice] = useState<string>('');
+  const [selectedOutputDevice, setSelectedOutputDevice] = useState<string>('');
   const [activeNotes, setActiveNotes] = useState<NoteState>({});
-
-  // Sound settings state
+  const [activeKeys, setActiveKeys] = useState<KeyState>({});
+  const [noteMap, setNoteMapWithoutSync] = useState<NoteMap>(DEFAULT_MAPPINGS);
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
-    waveform: 'sine',
-    attack: 0.05,
-    decay: 0.1,
-    sustain: 0.7,
-    release: 0.2,
-    volume: 0.5
+    volume: 0.20,
+    waveform: 'sine'
+  });
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const gainNodesRef = useRef<{[key: Note]: GainNode}>({});
+  const oscillatorsRef = useRef<{[key: Note]: OscillatorNode}>({});
+  const [colorSettings, setColorSettings] = useState<ColorSettings>({
+    whiteRest: 0x4E,
+    whitePressed: 0x15,
+    blackRest: 0x5F,
+    blackPressed: 0x15
   });
 
-  // For the Web Audio API
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const gainNodesRef = useRef<{[key: number]: GainNode}>({});
-  const oscillatorsRef = useRef<{[key: number]: OscillatorNode}>({});
+  // Handle theme change
+  const handleThemeChange = (newTheme: 'light' | 'dark') => {
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    document.body.setAttribute('data-theme', newTheme);
+    // Save theme preference to localStorage
+    localStorage.setItem('theme', newTheme);
+  };
 
+  // Initialize theme on component mount
   useEffect(() => {
-    // Initialize Web Audio API
-    audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-
-    // Request MIDI access
-    if (navigator.requestMIDIAccess) {
-      navigator.requestMIDIAccess({ sysex: true })
-        .then(onMIDISuccess)
-        .catch(err => setMidiError(`MIDI Access Error: ${err.message}`));
+    // Check if theme is saved in localStorage
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    
+    if (savedTheme) {
+      // Use saved theme if available
+      setTheme(savedTheme);
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      document.body.setAttribute('data-theme', savedTheme);
     } else {
-      setMidiError('Web MIDI API is not supported in your browser.');
+      // Otherwise use time-based theme
+      const isDark = new Date().getHours() >= 18 || new Date().getHours() < 6;
+      const initialTheme = isDark ? 'dark' : 'light';
+      setTheme(initialTheme);
+      document.documentElement.setAttribute('data-theme', initialTheme);
+      document.body.setAttribute('data-theme', initialTheme);
     }
+  }, []);
 
-    // Cleanup on unmount
+  // Initialize MIDI access and devices
+  useEffect(() => {
+    let isMounted = true;
+
+    const initializeMIDI = async () => {
+    try {
+      // Initialize Web Audio API
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+      // Request MIDI access
+      if (navigator.requestMIDIAccess) {
+        const midiAccess = await navigator.requestMIDIAccess({ sysex: true });
+        if (!isMounted) return;
+        
+        // Get all devices
+        const inputs: MIDIDevice[] = [];
+        const outputs: MIDIDevice[] = [];
+
+        setMidiAccess(midiAccess);
+
+        midiAccess.inputs.forEach(input => {
+          inputs.push(createMIDIDevice(input));
+        });
+
+        midiAccess.outputs.forEach(output => {
+          outputs.push(createMIDIDevice(output));
+        });
+
+        // Update device lists in reverse order to pick the correct device
+        setInputDevices([...inputs].reverse());
+        setOutputDevices([...outputs].reverse());
+
+        // Connect to first available devices
+        if (inputs.length > 0) {
+          const firstInput = inputs[inputs.length - 1]; // Get the last device
+          const selectedInput = midiAccess.inputs.get(firstInput.id);
+          if (selectedInput) {
+            selectedInput.onmidimessage = onMIDIMessage;
+            setSelectedInputDevice(firstInput.id);
+          }
+        }
+
+        if (outputs.length > 0) {
+          const firstOutput = outputs[outputs.length - 1]; // Get the last device
+          setSelectedOutputDevice(firstOutput.id);
+          // Initialize keys after connecting
+          synchronizeKeyboardColors();
+        }
+
+        // Listen for device changes
+        midiAccess.addEventListener('statechange', () => {
+          if (isMounted) {
+            updateDeviceList(midiAccess);
+          } else {
+            console.error("MIDI access not mounted");
+          }
+        });
+      }
+    } catch (err) {
+      if (isMounted) {
+        console.error('MIDI initialization error:', err);
+      }
+    }
+    };
+
+    initializeMIDI();
+
     return () => {
-      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-        audioContextRef.current.close();
+      isMounted = false;
+      if (audioContextRef.current?.state !== 'closed') {
+        audioContextRef.current?.close();
       }
     };
   }, []);
 
-  const onMIDISuccess = (midiAccess: WebMidi.MIDIAccess) => {
-    setMidiAccess(midiAccess);
-    updateDeviceList(midiAccess);
-
-    // Listen for device connection/disconnection
-    midiAccess.addEventListener('statechange', (event) => {
-      console.log('MIDI state changed:', event);
-      updateDeviceList(midiAccess);
-      addToLog({
-        timestamp: Date.now(),
-        type: 'statechange',
-        data: [],
-        description: `MIDI connection state changed: ${(event as unknown as { port: WebMidi.MIDIPort }).port.state}`
-      });
-    });
-  };
-
   const updateDeviceList = (midiAccess: WebMidi.MIDIAccess) => {
     const inputs: MIDIDevice[] = [];
+    const outputs: MIDIDevice[] = [];
+
     midiAccess.inputs.forEach(input => {
-      inputs.push({
-        id: input.id,
-        name: input.name || 'Unnamed device',
-        manufacturer: input.manufacturer || 'Unknown manufacturer',
-        connection: input.connection,
-        type: input.type
-      });
+      inputs.push(createMIDIDevice(input));
     });
-    setDevices(inputs);
+
+    midiAccess.outputs.forEach(output => {
+      outputs.push(createMIDIDevice(output));
+    });
+
+    // Update device lists in reverse order
+    setInputDevices([...inputs].reverse());
+    setOutputDevices([...outputs].reverse());
   };
 
-  const connectToDevice = (deviceId: string) => {
-    if (!midiAccess) return;
+  const sendMIDIPacket = (message: number[]): string | null => {
+    if (!midiAccess) return 'No midi access';
 
-    // Disconnect from any previous device
-    midiAccess.inputs.forEach(input => {
-      input.onmidimessage = null;
-    });
+    if(!selectedOutputDevice) return 'No device name';
 
-    if (deviceId) {
-      const selectedInput = midiAccess.inputs.get(deviceId);
-      if (selectedInput) {
-        selectedInput.onmidimessage = onMIDIMessage;
-        setSelectedDevice(deviceId);
-        addToLog({
-          timestamp: Date.now(),
-          type: 'connection',
-          data: [],
-          description: `Connected to ${selectedInput.name || 'unnamed device'}`
-        });
-      }
-    } else {
-      setSelectedDevice('');
+    const output = midiAccess.outputs.get(selectedOutputDevice);
+    if (!output) return 'No selected output device';
+
+    try {
+      output.send(new Uint8Array(message));
+      return null;
+    } catch (error) {
+      return 'Try error';
     }
+  };
+
+  const stopAudioNote = (note: number) => {
+    const oscillator = oscillatorsRef.current[note];
+    const gainNode = gainNodesRef.current[note];
+
+    if (oscillator && gainNode && audioContextRef.current) {
+      oscillator.stop();
+      delete oscillatorsRef.current[note];
+      delete gainNodesRef.current[note];
+    }
+  };
+
+  const playAudioNote = (note: number, velocity: number = 1.0) => {
+    if (!audioContextRef.current) return;
+    stopAudioNote(note);
+    const oscillator = audioContextRef.current.createOscillator();
+    const gainNode = audioContextRef.current.createGain();
+
+    oscillator.type = soundSettings.waveform;
+
+    oscillator.frequency.setValueAtTime(
+      440 * Math.pow(2, (note - 69) / 12),
+      audioContextRef.current.currentTime
+    );
+
+    // TODO: Arbitrary multiplier to make the note quieter
+    gainNode.gain.setValueAtTime(velocity * soundSettings.volume * 0.30, audioContextRef.current.currentTime);
+
+    // Connect nodes
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContextRef.current.destination);
+
+    // Start the oscillator
+    oscillator.start();
+
+    // Store references
+    oscillatorsRef.current[note] = oscillator;
+    gainNodesRef.current[note] = gainNode;
+  };
+
+
+  // Function to handle note press/release
+  const controllerPlayNote = (note: Note, velocity: number = 1.0) => {
+    console.log("KEY: ", note, "Playing this note: ", noteMap[note].target, noteMap[36], noteMap);
+    playAudioNote(noteMap[note].target, velocity);
+    setActiveKeys(prev => ({ ...prev, [note]: true }));
+    setActiveNotes(prev => ({ ...prev, [note]: true }));
+    const out = sendMIDIPacket([0x90, note, noteMap[note].pressedColor]);
+    if(out !== null) {
+      console.error("Failed to send MIDI packet: ", out);
+    } else {
+      console.log("Sent MIDI packet: ", [0x90, note, noteMap[note].pressedColor]);
+    }
+  };
+  
+  const controllerStopNote = (note: number) => {
+    stopAudioNote(noteMap[note].target);
+    setActiveKeys(prev => ({ ...prev, [note]: false }));
+    setActiveNotes(prev => { const newState = {...prev}; delete newState[note]; return newState; });
+    sendMIDIPacket([0x90, note, noteMap[note].restColor]);
   };
 
   const onMIDIMessage = (event: WebMidi.MIDIMessageEvent) => {
     const data = Array.from(event.data);
-
+    
     // Basic MIDI message parsing
     let description = 'Unknown MIDI message';
     const [status, note, velocity] = data;
@@ -147,11 +253,11 @@ const App: React.FC = () => {
 
     // Handle note on/off for synthesizer
     if (messageType === 0x90 && velocity > 0) { // Note on
-      playNote(note, velocity / 127);
-      description = `Note On: ${noteToName(note)} (${note}), Velocity: ${velocity}, Channel: ${channel + 1}`;
+      controllerPlayNote(note, velocity / 127);
+      description = `Note On:  ${noteToString(note)} (${note}), Velocity: ${velocity}, Channel: ${channel + 1}`;
     } else if (messageType === 0x80 || (messageType === 0x90 && velocity === 0)) { // Note off
-      stopNote(note);
-      description = `Note Off: ${noteToName(note)} (${note}), Channel: ${channel + 1}`;
+      controllerStopNote(note);
+      description = `Note Off: ${noteToString(note)} (${note}), Velocity: ${velocity}, Channel: ${channel + 1}`;
     } else if (messageType === 0xB0) { // Control Change
       description = `Control Change: Controller: ${note}, Value: ${velocity}, Channel: ${channel + 1}`;
     } else if (messageType === 0xC0) { // Program Change
@@ -163,193 +269,139 @@ const App: React.FC = () => {
       description = `Aftertouch: Note: ${note}, Pressure: ${velocity}, Channel: ${channel + 1}`;
     } else if (messageType === 0xD0) { // Channel Pressure
       description = `Channel Pressure: Pressure: ${note}, Channel: ${channel + 1}`;
+    } else {
+      // Log unrecognized message types
+      console.log('Unrecognized MIDI message type:', `0x${messageType.toString(16).toUpperCase()}`);
     }
 
-    addToLog({
-      timestamp: Date.now(),
-      type: 'midi',
-      data,
-      description
+    console.log(description);
+  };
+
+  // Function to synchronize keyboard colors with MIDI note map
+  const sendKeyboardColors = (map: NoteMap) => {
+    Object.entries(map).forEach(([note, mapping]) => {
+      sendMIDIPacket([0x90, parseInt(note), mapping.restColor]);
     });
   };
 
-  const addToLog = (log: MIDILog) => {
-    setLogs(prevLogs => {
-      // Keep only the most recent 100 logs to prevent memory issues
-      const newLogs = [log, ...prevLogs];
-      return newLogs.slice(0, 100);
+  // Update setNoteMap to use the single source of truth
+  const setNoteMap = (newNoteMap: NoteMap) => {
+    setNoteMapWithoutSync(newNoteMap);
+    sendKeyboardColors(newNoteMap);
+    console.log("NoteMap: ", newNoteMap);
+  };
+
+    // Function to synchronize keyboard colors with MIDI note map
+  const synchronizeKeyboardColors = () => {
+    sendKeyboardColors(noteMap);
+  };
+
+  // Update the propagateDefaultColors function to use colorSettings
+  const propagateDefaultColors = () => {
+    const newNoteMap = { ...noteMap };
+    
+    Object.keys(newNoteMap).forEach(noteStr => {
+      const note = parseInt(noteStr);
+      const isBlack = isBlackNote(note);
+      
+      newNoteMap[note] = {
+        ...newNoteMap[note],
+        restColor: isBlack ? colorSettings.blackRest : colorSettings.whiteRest,
+        pressedColor: isBlack ? colorSettings.blackPressed : colorSettings.whitePressed
+      };
     });
+    
+    setNoteMap(newNoteMap);
   };
 
-  const sendMIDIMessage = (messageType: number, channel: number, data1: number, data2: number) => {
-    if (!midiAccess || !selectedDevice) {
-      addToLog({
-        timestamp: Date.now(),
-        type: 'error',
-        data: [],
-        description: 'No device selected to send MIDI data'
-      });
-      return false;
-    }
+  // Fix the MIDI device creation
+  const createMIDIDevice = (device: WebMidi.MIDIInput | WebMidi.MIDIOutput): MIDIDevice => {
+    const state = device.state === 'connected' ? 'connected' : 'disconnected';
+    const type = device.type === 'input' ? 'input' : 'output';
+    return {
+      id: device.id,
+      name: device.name || 'Unknown Device',
+      manufacturer: device.manufacturer || 'Unknown',
+      state,
+      connection: device.connection,
+      type
+    };
+  };
 
-    try {
-      // Combine message type and channel into status byte
-      const statusByte = messageType | (channel & 0x0F);
-      const bytes = [statusByte, data1, data2];
+  const connectToInputDevice = (deviceId: string) => {
+    if (!midiAccess) return;
+    
+    // Disconnect from any previous device
+    midiAccess.inputs.forEach(input => {
+      input.onmidimessage = null;
+    });
 
-      // Send to output port (if available)
-      const outputIt = Array.from(midiAccess.outputs.values())
-      const output = outputIt.find(o => o.id === selectedDevice);
-
-      if (output) {
-        output.send(new Uint8Array(bytes));
-
-        addToLog({
-          timestamp: Date.now(),
-          type: 'sent',
-          data: bytes,
-          description: `Sent MIDI message: Type: ${messageType.toString(16).toUpperCase()}, Channel: ${channel + 1}, Data: [${data1}, ${data2}]`
-        });
-        return true;
-      } else {
-        addToLog({
-          timestamp: Date.now(),
-          type: 'error',
-          data: bytes,
-          description: 'Selected device has no output capability'
-        });
-        return false;
-      }
-    } catch (error) {
-      addToLog({
-        timestamp: Date.now(),
-        type: 'error',
-        data: [],
-        description: `Error sending MIDI data: ${error instanceof Error ? error.message : String(error)}`
-      });
-      return false;
+    const selectedInput = midiAccess.inputs.get(deviceId);
+    if (selectedInput) {
+      selectedInput.onmidimessage = onMIDIMessage;
+      setSelectedInputDevice(deviceId);
     }
   };
 
-  // Synthesizer functions with ADSR envelope
-  const playNote = (note: number, velocity: number = 0.7) => {
-    if (!audioContextRef.current) return;
-
-    // Stop note if it's already playing
-    stopNote(note);
-
-    // Create oscillator and gain nodes
-    const oscillator = audioContextRef.current.createOscillator();
-    const gainNode = audioContextRef.current.createGain();
-
-    // Set waveform type from sound settings
-    oscillator.type = soundSettings.waveform;
-
-    // Set frequency based on note number (MIDI note to frequency conversion)
-    oscillator.frequency.setValueAtTime(
-      440 * Math.pow(2, (note - 69) / 12),
-      audioContextRef.current.currentTime
-    );
-
-    // Initial gain is 0
-    gainNode.gain.setValueAtTime(0, audioContextRef.current.currentTime);
-
-    // Apply ADSR envelope
-    const now = audioContextRef.current.currentTime;
-
-    // Attack - ramp up from 0 to peak
-    gainNode.gain.linearRampToValueAtTime(
-      velocity * soundSettings.volume,
-      now + soundSettings.attack
-    );
-
-    // Decay - ramp down to sustain level
-    gainNode.gain.linearRampToValueAtTime(
-      velocity * soundSettings.volume * soundSettings.sustain,
-      now + soundSettings.attack + soundSettings.decay
-    );
-
-    // Connect nodes
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContextRef.current.destination);
-    oscillator.start();
-
-    // Store nodes for later stopping/release
-    oscillatorsRef.current[note] = oscillator;
-    gainNodesRef.current[note] = gainNode;
-
-    // Update active notes state
-    setActiveNotes(prev => ({...prev, [note]: true}));
-  };
-
-  const stopNote = (note: number) => {
-    const oscillator = oscillatorsRef.current[note];
-    const gainNode = gainNodesRef.current[note];
-
-    if (oscillator && gainNode && audioContextRef.current) {
-      // Release phase - gradual fade out
-      const now = audioContextRef.current.currentTime;
-      gainNode.gain.cancelScheduledValues(now);
-      gainNode.gain.setValueAtTime(gainNode.gain.value, now);
-      gainNode.gain.linearRampToValueAtTime(0, now + soundSettings.release);
-
-      // Stop oscillator after release
-      oscillator.stop(now + soundSettings.release);
-
-      // Clean up after release time
-      setTimeout(() => {
-        delete oscillatorsRef.current[note];
-        delete gainNodesRef.current[note];
-      }, soundSettings.release * 1000);
-
-      // Update active notes state
-      setActiveNotes(prev => {
-        const newState = {...prev};
-        delete newState[note];
-        return newState;
-      });
+  const connectToOutputDevice = (deviceId: string) => {
+    if (!midiAccess) return;
+    
+    setSelectedOutputDevice(deviceId);
+    const selectedOutput = midiAccess.outputs.get(deviceId);
+    if (selectedOutput) {
+      synchronizeKeyboardColors();
     }
-  };
-
-  const clearLogs = () => {
-    setLogs([]);
-  };
-
-  const noteToName = (noteNumber: number): string => {
-    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const octave = Math.floor(noteNumber / 12) - 1;
-    const noteName = notes[noteNumber % 12];
-    return `${noteName}${octave}`;
   };
 
   return (
-    <div className="app-container">
-      <h1>USB MIDI Controller Interface</h1>
-
-      {midiError && <div className="error-message">{midiError}</div>}
-
+    <div className="App" data-theme={theme}>
+      <header className="App-header">
+        <h1>MIDI Controller</h1>
+        <ThemeToggle onThemeChange={handleThemeChange} />
+      </header>
       <div className="section">
-        <h2>MIDI Devices</h2>
+        <h3>MIDI Devices</h3>
         <div className="device-selector">
-          <select
-            value={selectedDevice}
-            onChange={(e) => connectToDevice(e.target.value)}
-          >
-            <option value="">-- Select a MIDI device --</option>
-            {devices.map(device => (
-              <option key={device.id} value={device.id}>
-                {device.name} ({device.manufacturer})
-              </option>
-            ))}
-          </select>
-          <button onClick={() => updateDeviceList(midiAccess!)}>Refresh Devices</button>
+          <div className="device-group">
+            <label>Input Device:</label>
+            <select
+              value={selectedInputDevice}
+              onChange={(e) => connectToInputDevice(e.target.value)}
+            >
+              <option value="">-- Select an input device --</option>
+              {inputDevices.map(device => (
+                <option key={device.id} value={device.id}>
+                  {device.name} ({device.manufacturer})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="device-group">
+            <label>Output Device:</label>
+            <select
+              value={selectedOutputDevice}
+              onChange={(e) => connectToOutputDevice(e.target.value)}
+            >
+              <option value="">-- Select an output device --</option>
+              {outputDevices.map(device => (
+                <option key={device.id} value={device.id}>
+                  {device.name} ({device.manufacturer})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="device-controls">
+            <button onClick={() => updateDeviceList(midiAccess!)}>Refresh Devices</button>
+          </div>
         </div>
 
-        {devices.length === 0 && <p>No MIDI devices detected. Connect a device and click Refresh.</p>}
+        {inputDevices.length === 0 && outputDevices.length === 0 && (
+          <p>No MIDI devices detected. Connect a device and click Refresh.</p>
+        )}
       </div>
 
       <div className="section">
-        <h2>Sound Generator</h2>
+        <h3>Sound Generator</h3>
         <SoundGenerator
           settings={soundSettings}
           onSettingsChange={setSoundSettings}
@@ -357,58 +409,46 @@ const App: React.FC = () => {
       </div>
 
       <div className="section">
-        <h2>Virtual Keyboard</h2>
-        <VirtualKeyboard
-          activeNotes={activeNotes}
-          playNote={playNote}
-          stopNote={stopNote}
+        <h3>Isomorphic Keyboard Layout</h3>
+        <IsomorphicKeyboardGenerator 
+          onUpdateMapping={setNoteMap}
+          colorSettings={colorSettings}
         />
-        <p className="note">Click keys to test sound or use your MIDI controller</p>
       </div>
 
-      {/* <div className="section">
-        <h2>Send Custom MIDI Data</h2>
-        <div className="custom-midi">
-          <input
-            type="text"
-            value={customData}
-            onChange={(e) => setCustomData(e.target.value)}
-            placeholder="Enter hex bytes (e.g., 90 3C 7F)"
-          />
-          <button onClick={sendCustomMIDIData}>Send</button>
-        </div>
-        <p className="note">Format: status byte data1 data2 (space separated hex values)</p>
-        <p className="note">Example: 90 3C 7F (Note On, C4, velocity 127)</p>
-      </div> */}
+      <div className="section">
+        <h3>Launchpad Layout</h3>
+        <GridKeyboard
+          onNotePress={(k) => controllerPlayNote(k)}
+          onNoteRelease={controllerStopNote}
+          setNoteMap={setNoteMap}
+          activeKeys={activeKeys}
+          noteMap={noteMap}
+        />
+        <p className="note">Click note label to edit, click pad edges to play, right-click to open color picker (Shift+Right-click for pressed color)</p>
+      </div>
 
       <div className="section">
-        <h2>MIDI Event Log</h2>
-        <button onClick={clearLogs}>Clear Logs</button>
-        <div className="log-container">
-          {logs.length === 0 ? (
-            <p>No MIDI events logged yet.</p>
-          ) : (
-            <table className="log-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Type</th>
-                  <th>Data</th>
-                  <th>Description</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log, index) => (
-                  <tr key={index} className={`log-type-${log.type}`}>
-                    <td>{new Date(log.timestamp).toLocaleTimeString()}</td>
-                    <td>{log.type}</td>
-                    <td>{log.data.map(byte => byte.toString(16).padStart(2, '0').toUpperCase()).join(' ')}</td>
-                    <td>{log.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="color-settings-container">
+          <h3>Default Colors</h3>
+          <DefaultColorsSettings
+            colorSettings={colorSettings}
+            onColorSettingsChange={setColorSettings}
+            onPropagateColors={propagateDefaultColors}
+          />
+        </div>
+      </div>
+      
+      <div className="section">
+        <div className="mapping-container">
+          <MIDINoteMap
+            noteMap={noteMap}
+            onUpdateMapping={setNoteMap}
+          />
+          <div className="color-controls">
+            <button onClick={() => setNoteMap(DEFAULT_MAPPINGS)}> Reset Keyboard </button>
+            <button onClick={synchronizeKeyboardColors}> Sync Keyboard </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,0 +1,148 @@
+/* src/App.css */
+.app-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+}
+
+.section {
+  margin-bottom: 30px;
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  background-color: #f9f9f9;
+}
+
+.device-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.device-selector select {
+  flex: 1;
+  padding: 8px;
+}
+
+.error-message {
+  color: red;
+  background-color: #ffeeee;
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.custom-midi {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.custom-midi input {
+  flex: 1;
+  padding: 8px;
+}
+
+.log-container {
+  height: 300px;
+  overflow-y: auto;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background-color: #fff;
+}
+
+.log-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.log-table th, .log-table td {
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.log-type-midi {
+  background-color: #e6f7ff;
+}
+
+.log-type-sent {
+  background-color: #effff0;
+}
+
+.log-type-error {
+  background-color: #fff1f0;
+}
+
+.note {
+  font-size: 12px;
+  color: #666;
+  margin-top: 5px;
+}
+
+button {
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  padding: 8px 15px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 14px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #45a049;
+}
+
+/* Virtual Keyboard */
+.virtual-keyboard {
+  display: flex;
+  height: 120px;
+  margin: 20px 0;
+  position: relative;
+}
+
+.key {
+  border: 1px solid #aaa;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 5px;
+  box-sizing: border-box;
+}
+
+.key.white {
+  background-color: white;
+  width: 40px;
+  height: 120px;
+  z-index: 1;
+}
+
+.key.black {
+  background-color: black;
+  color: white;
+  width: 24px;
+  height: 80px;
+  margin-left: -12px;
+  margin-right: -12px;
+  z-index: 2;
+}
+
+.key.active {
+  background-color: #a0d6b4;
+}
+
+.key.black.active {
+  background-color: #2a6e3f;
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}

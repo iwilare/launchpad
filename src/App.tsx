@@ -162,7 +162,7 @@ const App: React.FC = () => {
     setOutputDevices([...outputs].reverse());
   };
 
-  const sendMIDIPacket = (message: number[]): string | null => {
+  const sendMIDIPacket = React.useCallback((message: number[]): string | null => {
     if (!midiAccess) return 'No midi access';
 
     if(!selectedOutputDevice) return 'No device name';
@@ -176,9 +176,9 @@ const App: React.FC = () => {
     } catch (error) {
       return 'Try error';
     }
-  };
+  }, [midiAccess, selectedOutputDevice]);
 
-  const stopAudioNote = (note: number) => {
+  const stopAudioNote = React.useCallback((note: number) => {
     const oscillator = oscillatorsRef.current[note];
     const gainNode = gainNodesRef.current[note];
 
@@ -187,9 +187,9 @@ const App: React.FC = () => {
       delete oscillatorsRef.current[note];
       delete gainNodesRef.current[note];
     }
-  };
+  }, []);
 
-  const playAudioNote = (note: number, velocity: number = 1.0) => {
+  const playAudioNote = React.useCallback((note: number, velocity: number = 1.0) => {
     if (!audioContextRef.current) return;
     stopAudioNote(note);
     const oscillator = audioContextRef.current.createOscillator();
@@ -215,12 +215,10 @@ const App: React.FC = () => {
     // Store references
     oscillatorsRef.current[note] = oscillator;
     gainNodesRef.current[note] = gainNode;
-  };
-
+  }, [soundSettings, stopAudioNote]);
 
   // Function to handle note press/release
-  const controllerPlayNote = (note: Note, velocity: number = 1.0) => {
-    console.log("ZZZZZZZZZZZZZZZZZZZZZZZ Note BEING PLAYED WITH: ", note, noteMap[note].target, noteMap);
+  const controllerPlayNote = React.useCallback((note: Note, velocity: number = 1.0) => {
     playAudioNote(noteMap[note].target, velocity);
     setActiveKeys(prev => ({ ...prev, [note]: true }));
     setActiveNotes(prev => ({ ...prev, [note]: true }));
@@ -230,16 +228,16 @@ const App: React.FC = () => {
     } else {
       console.log("Sent MIDI packet: ", [0x90, note, noteMap[note].pressedColor]);
     }
-  };
+  }, [noteMap, playAudioNote, sendMIDIPacket]);
   
-  const controllerStopNote = (note: number) => {
+  const controllerStopNote = React.useCallback((note: number) => {
     stopAudioNote(noteMap[note].target);
     setActiveKeys(prev => ({ ...prev, [note]: false }));
     setActiveNotes(prev => { const newState = {...prev}; delete newState[note]; return newState; });
     sendMIDIPacket([0x90, note, noteMap[note].restColor]);
-  };
+  }, [noteMap, stopAudioNote, sendMIDIPacket]);
 
-  const onMIDIMessage = (event: WebMidi.MIDIMessageEvent) => {
+  const onMIDIMessage = React.useCallback((event: WebMidi.MIDIMessageEvent) => {
     const [status, note, velocity] = Array.from(event.data);
     
     let description = 'Unknown MIDI message';
@@ -273,7 +271,7 @@ const App: React.FC = () => {
     }
 
     console.log(description);
-  };
+  }, [controllerPlayNote, controllerStopNote]);
 
   // Function to synchronize keyboard colors with MIDI note map
   const sendKeyboardColors = (map: NoteMap) => {
@@ -325,7 +323,7 @@ const App: React.FC = () => {
     };
   };
 
-  const connectToInputDevice = (deviceId: string) => {
+  const connectToInputDevice = React.useCallback((deviceId: string) => {
     if (!midiAccess) return;
     
     // Disconnect from any previous device
@@ -338,7 +336,14 @@ const App: React.FC = () => {
       selectedInput.onmidimessage = onMIDIMessage;
       setSelectedInputDevice(deviceId);
     }
-  };
+  }, [midiAccess, onMIDIMessage]);
+
+  // Add an effect to reconnect when noteMap changes
+  useEffect(() => {
+    if (selectedInputDevice) {
+      connectToInputDevice(selectedInputDevice);
+    }
+  }, [selectedInputDevice, connectToInputDevice, noteMap]);
 
   const connectToOutputDevice = (deviceId: string) => {
     if (!midiAccess) return;

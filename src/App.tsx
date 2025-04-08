@@ -220,7 +220,7 @@ const App: React.FC = () => {
 
   // Function to handle note press/release
   const controllerPlayNote = (note: Note, velocity: number = 1.0) => {
-    console.log("KEY: ", note, "Playing this note: ", noteMap[note].target, noteMap[36], noteMap);
+    console.log("ZZZZZZZZZZZZZZZZZZZZZZZ Note BEING PLAYED WITH: ", note, noteMap[note].target, noteMap);
     playAudioNote(noteMap[note].target, velocity);
     setActiveKeys(prev => ({ ...prev, [note]: true }));
     setActiveNotes(prev => ({ ...prev, [note]: true }));
@@ -240,11 +240,9 @@ const App: React.FC = () => {
   };
 
   const onMIDIMessage = (event: WebMidi.MIDIMessageEvent) => {
-    const data = Array.from(event.data);
+    const [status, note, velocity] = Array.from(event.data);
     
-    // Basic MIDI message parsing
     let description = 'Unknown MIDI message';
-    const [status, note, velocity] = data;
 
     // Extract channel (0-15) from status byte
     const channel = status & 0x0F;
@@ -288,7 +286,6 @@ const App: React.FC = () => {
   const setNoteMap = (newNoteMap: NoteMap) => {
     setNoteMapWithoutSync(newNoteMap);
     sendKeyboardColors(newNoteMap);
-    console.log("NoteMap: ", newNoteMap);
   };
 
     // Function to synchronize keyboard colors with MIDI note map
@@ -419,8 +416,8 @@ const App: React.FC = () => {
       <div className="section">
         <h3>Launchpad Layout</h3>
         <GridKeyboard
-          onNotePress={(k) => controllerPlayNote(k)}
-          onNoteRelease={controllerStopNote}
+          onKeyPress={(k) => controllerPlayNote(k)}
+          onKeyRelease={controllerStopNote}
           setNoteMap={setNoteMap}
           activeKeys={activeKeys}
           noteMap={noteMap}

@@ -6,13 +6,13 @@ import { stringToNote, Note, LaunchpadColor, NoteMap, noteToString, GRID_LAYOUT 
 
 interface GridKeyboardProps {
   activeKeys: NoteState;
-  onNotePress: (note: Note) => void;
-  onNoteRelease: (note: Note) => void;
+  onKeyPress: (note: Note) => void;
+  onKeyRelease: (note: Note) => void;
   noteMap: NoteMap;
   setNoteMap: (noteMap: NoteMap) => void;
 }
 
-const GridKeyboard: React.FC<GridKeyboardProps> = ({ onNotePress, onNoteRelease, setNoteMap, activeKeys, noteMap }) => {
+const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, onKeyRelease: onNoteRelease, setNoteMap, activeKeys, noteMap }) => {
   const [editingCell, setEditingCell] = useState<Note | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [colorPickerCell, setColorPickerCell] = useState<Note | null>(null);

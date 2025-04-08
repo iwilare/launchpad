@@ -15,23 +15,9 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            # Node.js and npm
             nodejs_20
-            # Shell utilities
-            watchexec  # For file watching
+            watchexec
           ];
-
-          shellHook = ''
-            echo "MIDI Controller App Development Environment"
-            echo "Node.js $(node --version)"
-            echo "npm $(npm --version)"
-            echo ""
-            echo "Available commands:"
-            echo "  npm start       - Start development server"
-            echo "  npm run build   - Build for production"
-            echo "  npm run lint    - Run linter"
-            echo ""
-          '';
         };
       }
     );

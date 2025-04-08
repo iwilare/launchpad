@@ -30,7 +30,7 @@ const SoundGenerator: React.FC<SoundGeneratorProps> = ({ settings, onSettingsCha
   return (
     <div className="sound-generator">
       <div className="control-row">
-        <div className="control-group">
+        <div className="sound-control-group">
           <label htmlFor="waveform">Waveform</label>
           <select
             id="waveform"
@@ -45,7 +45,7 @@ const SoundGenerator: React.FC<SoundGeneratorProps> = ({ settings, onSettingsCha
           </select>
         </div>
 
-        <div className="control-group">
+        <div className="sound-control-group">
           <label htmlFor="volume">Volume</label>
           <input
             type="range"

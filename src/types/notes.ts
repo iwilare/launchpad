@@ -14,7 +14,9 @@ export enum NoteName {
   B = 'B'
 }
 
-export const DEFAULT_BASE_NOTE = 36 + 12;
+export const DEFAULT_BASE_NOTE = 50;
+
+export const LOWEST_CONTROLLER_NOTE = 36;
 
 export const NoteNameList = Object.values(NoteName);
 
@@ -90,7 +92,7 @@ export const stringToNoteName = (noteString: string): NoteName | null => {
 // Convert a note string (e.g. "C4", "F#3") to a MIDI note number
 export const stringToNoteRepr = (noteString: string): NoteRepr | null => {
   // Match format: note[#b]octave (e.g. C4, F#3, Bb2)
-  const match = noteString.match(/^([A-G][#b])?(-?\d+)$/);
+  const match = noteString.match(/^([A-G][#b]?)\s*(\d+)$/);
   if (!match) return null;
 
   const [, noteNameString, octaveStr] = match;
@@ -115,7 +117,7 @@ export const noteReprToString = (noteRepr: NoteRepr): string => {
 };
 
 export const noteToNoteRepr = (note: Note): NoteRepr => {
-  const octave = Math.floor(note / 12) - 2;
+  const octave = Math.floor(note / 12) - 1;
   const noteIndex = note % 12;
   const noteName = NoteNameList[noteIndex];
   return { name: noteName, octave: octave };
@@ -126,7 +128,7 @@ export const noteNameToNote = (noteName: NoteName): Note => {
 };
 
 export const noteReprToNote = (noteRepr: NoteRepr): Note => {
-  return noteRepr.octave * 12 + noteNameToNote(noteRepr.name);
+  return (noteRepr.octave + 1) * 12 + noteNameToNote(noteRepr.name);
 };
 
 export const noteToString = (note: Note): string => {

@@ -19,20 +19,18 @@ const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, on
 
   const handleEditSubmit = () => {
     if (editingCell) {
-      // const index = getMappingIndex(editingCell.row, editingCell.col);
-      // const newNote = noteNameToNumber(editValue) as Note;
-      // const parsedNote = stringToNote(editValue);
+      const parsedNote = stringToNote(editValue);
       
-      // if (newNote !== null && parsedNote && noteMap[index]) {
-      //   const newnoteMap = {...noteMap};
-      //   newnoteMap[index] = {
-      //     ...newnoteMap[index],
-      //     target: parsedNote,
-      //     source: newNote
-      //   };
-      //   setNoteMap(newnoteMap);
-      // }
-      // setEditingCell(null);
+      if (parsedNote !== null && noteMap[editingCell]) {
+        const newNoteMap = {...noteMap};
+        newNoteMap[editingCell] = {
+          ...newNoteMap[editingCell],
+          target: parsedNote
+        };
+        setNoteMap(newNoteMap);
+      }
+      setEditingCell(null);
+      setEditValue('');
     }
   };
 
@@ -41,7 +39,13 @@ const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, on
       handleEditSubmit();
     } else if (e.key === 'Escape') {
       setEditingCell(null);
+      setEditValue('');
     }
+  };
+
+  const handleEditStart = (src: Note) => {
+    setEditingCell(src);
+    setEditValue(noteToString(noteMap[src].target));
   };
 
   const handleColorChange = (colorCode: LaunchpadColor) => {
@@ -78,14 +82,15 @@ const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, on
         e.stopPropagation();
         setColorPickerCell(src);
       }} >
-      {editingCell == src ? (
+      {editingCell === src ? (
         <input
           type="text"
           value={editValue}
-          //onChange={(e) => setEditValue(src)}
+          onChange={(e) => setEditValue(e.target.value)}
           onKeyDown={handleEditKeyDown}
           onBlur={handleEditSubmit}
           autoFocus
+          onClick={(e) => e.stopPropagation()}
         />
       ) : (
         <div className="cell-content">
@@ -96,7 +101,8 @@ const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, on
             }}
             onClick={(e) => {
               e.preventDefault();
-              setEditingCell(src);
+              e.stopPropagation();
+              handleEditStart(src);
             }}
           >{noteToString(noteMap[src].target)}</div>
         </div>

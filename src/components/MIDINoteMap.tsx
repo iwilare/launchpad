@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { NoteMapping, LaunchpadColor, NoteMap, Note, noteToNoteRepr, niceNoteMapStringToNoteMap, isBlackNote } from '../types/notes';
 import { launchpadColorToHexString } from '../types/colors';
-import { noteToString, isBlackKey, stringToNote } from '../types/notes';
+import { noteToString, isBlackKey, stringToNote, stringToNoteName, noteReprToNote } from '../types/notes';
 import ColorButton from './ColorButton';
 
 interface Props {
@@ -43,31 +43,73 @@ const MIDINoteMap: React.FC<Props> = ({ noteMap, onUpdateMapping }) => {
   };
 
   const updateJsonValue = (mappings: NoteMap) => {
-    const formattedJson = '[\n' + 
-      Object.entries(mappings).map(([sourceAsForcedString, mapping]) => '  ' + JSON.stringify({
-        from: noteToString(parseInt(sourceAsForcedString)),
-        to: noteToNoteRepr(mapping.target),
-        restColor: mapping.restColor,
-        pressedColor: mapping.pressedColor
-      })).join(',\n') +
-      '\n]';
-    setJsonValue(formattedJson);
+    // First pass to find the longest note name
+    const maxNameLength = Math.max(...Object.values(mappings).map(mapping => {
+      const noteRepr = noteToNoteRepr(mapping.target);
+      return noteRepr.name.length;
+    }));
+
+    const formattedJson = Object.entries(mappings)
+      .map(([sourceNote, mapping]) => {
+        const noteRepr = noteToNoteRepr(mapping.target);
+        const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
+        return `  { "from": ${sourceNote}, "name": "${noteRepr.name}"${namePadding}, "octave": ${noteRepr.octave}, "restColor": ${mapping.restColor}, "pressedColor": ${mapping.pressedColor} }`;
+      })
+      .join(',\n');
+    setJsonValue('[\n' + formattedJson + '\n]');
   };
+
+  useEffect(() => {
+    if (!showJson) {
+      updateJsonValue(noteMap);
+    }
+  }, [noteMap, showJson]);
 
   const handleJsonChange = (value: string) => {
     setJsonValue(value);
     try {
-      const asd = niceNoteMapStringToNoteMap(value);
-
-      if (typeof asd === 'string') {
-        setJsonError(asd);
+      const parsedJson = JSON.parse(value);
+      if (!Array.isArray(parsedJson)) {
+        setJsonError('JSON must be an array of mappings');
         return;
+      }
+
+      const isValid = parsedJson.every(mapping => 
+        typeof mapping?.from === 'number' && 
+        typeof mapping?.name === 'string' && 
+        typeof mapping?.octave === 'number' && 
+        typeof mapping?.restColor === 'number' && 
+        typeof mapping?.pressedColor === 'number'
+      );
+
+      if (!isValid) {
+        setJsonError('Each mapping must have: from (number), name (string), octave (number), restColor (number), pressedColor (number)');
+        return;
+      }
+
+      const newNoteMap: NoteMap = {};
+      for (const mapping of parsedJson) {
+        const noteName = stringToNoteName(mapping.name);
+        if (!noteName) {
+          setJsonError(`Invalid note name: ${mapping.name}`);
+          return;
+        }
+        
+        newNoteMap[mapping.from] = {
+          target: noteReprToNote({ name: noteName, octave: mapping.octave }),
+          restColor: mapping.restColor,
+          pressedColor: mapping.pressedColor
+        };
+      }
+      
+      setJsonError('');
+      onUpdateMapping(newNoteMap);
+    } catch (e) {
+      if (value.trim()) {
+        setJsonError('Invalid JSON format');
       } else {
         setJsonError('');
-        onUpdateMapping(asd);
       }
-    } catch (e) {
-      setJsonError('Invalid JSON format');
     }
   };
 

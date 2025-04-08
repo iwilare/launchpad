@@ -47,29 +47,51 @@ const IsomorphicKeyboardGenerator: React.FC<Props> = ({ onUpdateMapping, colorSe
 
   return (
     <div className="isomorphic-keyboard-generator">
-      <div className="control-group">
-        <label>Start Note:</label>
-        <NoteInput data={startNote} onChange={setStartNote} />
-      </div>
-      <div className="control-group">
-        <label>Horizontal Step:</label>
-        <input
-          type="number"
-          value={horizontalStep}
-          onChange={(e) => setHorizontalStep(parseInt(e.target.value) || 0)}
-          min={-12}
-          max={12}
-        />
-      </div>
-      <div className="control-group">
-        <label>Vertical Step:</label>
-        <input
-          type="number"
-          value={verticalStep}
-          onChange={(e) => setVerticalStep(parseInt(e.target.value) || 0)}
-          min={-12}
-          max={12}
-        />
+      <div className="controls-grid">
+        <div className="control-group">
+          <label>Start Note:</label>
+          <div className="note-input-container">
+            <NoteInput data={startNote} onChange={setStartNote} />
+            <div className="note-stepper">
+              <button 
+                onClick={() => {
+                  if (startNote < 127) {
+                    setStartNote((startNote + 1) as Note);
+                  }
+                }}
+                disabled={startNote >= 127}
+              >▲</button>
+              <button 
+                onClick={() => {
+                  if (startNote > 0) {
+                    setStartNote((startNote - 1) as Note);
+                  }
+                }}
+                disabled={startNote <= 0}
+              >▼</button>
+            </div>
+          </div>
+        </div>
+        <div className="control-group">
+          <label>Horizontal Step:</label>
+          <input
+            type="number"
+            value={horizontalStep}
+            onChange={(e) => setHorizontalStep(parseInt(e.target.value) || 0)}
+            min={-12}
+            max={12}
+          />
+        </div>
+        <div className="control-group">
+          <label>Vertical Step:</label>
+          <input
+            type="number"
+            value={verticalStep}
+            onChange={(e) => setVerticalStep(parseInt(e.target.value) || 0)}
+            min={-12}
+            max={12}
+          />
+        </div>
       </div>
       <button
         onClick={generateIsomorphicLayout}

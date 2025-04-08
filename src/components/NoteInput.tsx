@@ -40,7 +40,6 @@ const NoteInput: React.FC<NoteInputProps> = ({ onChange, data, className }) => {
       onChange={handleChange}
       className={`note-input ${!isValid ? 'invalid-input' : ''} ${className}`}
       maxLength={4}
-      placeholder="C4"
       title="Enter note name (e.g., C4, C#3)"
     />
   );

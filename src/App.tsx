@@ -9,6 +9,7 @@ import GridKeyboard from './components/GridKeyboard';
 import IsomorphicKeyboardGenerator from './components/IsomorphicKeyboardGenerator';
 import { KeyState, MIDIDevice, NoteState, SoundSettings } from './types';
 import { Note, LaunchpadColor, NoteMap, noteToString, isBlackNote, DEFAULT_MAPPINGS } from './types/notes';
+import LinearKeyboardGenerator from './components/LinearKeyboardGenerator';
 
 interface ColorSettings {
   whiteRest: LaunchpadColor;
@@ -25,7 +26,11 @@ const App: React.FC = () => {
   const [selectedOutputDevice, setSelectedOutputDevice] = useState<string>('');
   const [activeNotes, setActiveNotes] = useState<NoteState>({});
   const [activeKeys, setActiveKeys] = useState<KeyState>({});
-  const [noteMap, setNoteMapWithoutSync] = useState<NoteMap>(DEFAULT_MAPPINGS);
+  const [noteMap, setNoteMapWithoutSync] = useState<NoteMap>(() => {
+    // Try to load noteMap from sessionStorage
+    const savedNoteMap = sessionStorage.getItem('noteMap');
+    return savedNoteMap ? JSON.parse(savedNoteMap) : DEFAULT_MAPPINGS;
+  });
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
     volume: 0.20,
@@ -280,10 +285,12 @@ const App: React.FC = () => {
     });
   };
 
-  // Update setNoteMap to use the single source of truth
+  // Update setNoteMap to use the single source of truth and save to sessionStorage
   const setNoteMap = (newNoteMap: NoteMap) => {
     setNoteMapWithoutSync(newNoteMap);
     sendKeyboardColors(newNoteMap);
+    // Save to sessionStorage
+    sessionStorage.setItem('noteMap', JSON.stringify(newNoteMap));
   };
 
     // Function to synchronize keyboard colors with MIDI note map
@@ -413,6 +420,14 @@ const App: React.FC = () => {
       <div className="section">
         <h3>Isomorphic Keyboard Layout</h3>
         <IsomorphicKeyboardGenerator 
+          onUpdateMapping={setNoteMap}
+          colorSettings={colorSettings}
+        />
+      </div>
+
+      <div className="section">
+        <h3>Linear Keyboard Layout</h3>
+        <LinearKeyboardGenerator 
           onUpdateMapping={setNoteMap}
           colorSettings={colorSettings}
         />

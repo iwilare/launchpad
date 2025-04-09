@@ -7,14 +7,14 @@ import DefaultColorsSettings from './components/DefaultColorsSettings';
 import ThemeToggle from './components/ThemeToggle';
 import GridKeyboard from './components/GridKeyboard';
 import IsomorphicKeyboardGenerator from './components/IsomorphicKeyboardGenerator';
-import { KeyState, MIDIDevice, NoteState, SoundSettings } from './types';
+import { addNote, isActiveNote, isLastNote, KeyState, MIDIDevice, NoteState, removeNote, SoundSettings } from './types';
 import { Note, LaunchpadColor, NoteMap, noteToString, isBlackNote, DEFAULT_MAPPINGS } from './types/notes';
-import LinearKeyboardGenerator from './components/LinearKeyboardGenerator';
+import DirectKeyboardGenerator from './components/DirectKeyboardGenerator';
 
 interface ColorSettings {
   whiteRest: LaunchpadColor;
   whitePressed: LaunchpadColor;
-  blackRest: LaunchpadColor;
+  blackRest: LaunchpadColor;  
   blackPressed: LaunchpadColor;
 }
 
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [selectedOutputDevice, setSelectedOutputDevice] = useState<string>('');
   const [activeNotes, setActiveNotes] = useState<NoteState>({});
   const [activeKeys, setActiveKeys] = useState<KeyState>({});
+  const [showSameNotePressed, setshowSameNotePressed] = useState<boolean>(true);
   const [noteMap, setNoteMapWithoutSync] = useState<NoteMap>(() => {
     // Try to load noteMap from sessionStorage
     const savedNoteMap = sessionStorage.getItem('noteMap');
@@ -34,7 +35,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
     volume: 0.20,
-    waveform: 'sine'
+    waveform: 'square'
   });
   const audioContextRef = useRef<AudioContext | null>(null);
   const gainNodesRef = useRef<{[key: Note]: GainNode}>({});
@@ -222,25 +223,53 @@ const App: React.FC = () => {
     gainNodesRef.current[note] = gainNode;
   }, [soundSettings, stopAudioNote]);
 
-  // Function to handle note press/release
-  const controllerPlayNote = React.useCallback((note: Note, velocity: number = 1.0) => {
-    playAudioNote(noteMap[note].target, velocity);
-    setActiveKeys(prev => ({ ...prev, [note]: true }));
-    setActiveNotes(prev => ({ ...prev, [note]: true }));
-    const out = sendMIDIPacket([0x90, note, noteMap[note].pressedColor]);
+  const sendColorPacketSingle = React.useCallback((key: Note, color: number) => {
+    const out = sendMIDIPacket([0x90, key, color]);
     if(out !== null) {
       console.error("Failed to send MIDI packet: ", out);
-    } else {
-      console.log("Sent MIDI packet: ", [0x90, note, noteMap[note].pressedColor]);
     }
-  }, [noteMap, playAudioNote, sendMIDIPacket]);
+  }, []);
+
+  const sendColorPacketAllNotes = React.useCallback((key: Note, color: number) => {
+    Object.entries(noteMap).forEach(([otherKeyAsForcedString, mapping]) => {
+      const otherKey = parseInt(otherKeyAsForcedString);
+      if (mapping.target === noteMap[key].target) {
+        const out = sendMIDIPacket([0x90, otherKey, color]);
+        if (out !== null) {
+          console.error("Failed to send MIDI packet: ", out);
+        }
+      }
+    });
+  }, [noteMap]);
+
+  // Function to handle note press/release
+  const controllerPlayNote = React.useCallback((key: Note, velocity: number = 1.0) => {
+    if (!isActiveNote(activeNotes, noteMap[key].target)) {
+      playAudioNote(noteMap[key].target, velocity);
+      if (showSameNotePressed) 
+        sendColorPacketAllNotes(key, noteMap[key].pressedColor);
+      else
+        sendColorPacketSingle(key, noteMap[key].pressedColor);
+    }
+    setActiveKeys(p => ({ ...p, [key]: true }));
+    setActiveNotes(p => addNote(p, noteMap[key].target));
+  }, [noteMap, activeKeys, activeNotes, playAudioNote, sendMIDIPacket]);
   
-  const controllerStopNote = React.useCallback((note: number) => {
-    stopAudioNote(noteMap[note].target);
-    setActiveKeys(prev => ({ ...prev, [note]: false }));
-    setActiveNotes(prev => { const newState = {...prev}; delete newState[note]; return newState; });
-    sendMIDIPacket([0x90, note, noteMap[note].restColor]);
-  }, [noteMap, stopAudioNote, sendMIDIPacket]);
+  const controllerStopNote = React.useCallback((key: Note) => {
+    if (showSameNotePressed) {
+      if (isLastNote(activeNotes, noteMap[key].target)) {
+        stopAudioNote(noteMap[key].target);
+        sendColorPacketAllNotes(key, noteMap[key].restColor);
+      }
+    } else {
+      if (isLastNote(activeNotes, noteMap[key].target)) {
+        stopAudioNote(noteMap[key].target);
+      }
+      sendColorPacketSingle(key, noteMap[key].restColor);
+    }
+    setActiveKeys(p => ({ ...p, [key]: false }));
+    setActiveNotes(p => removeNote(p, noteMap[key].target));
+  }, [noteMap, activeKeys, activeNotes, stopAudioNote, sendMIDIPacket]);
 
   const onMIDIMessage = React.useCallback((event: WebMidi.MIDIMessageEvent) => {
     const [status, note, velocity] = Array.from(event.data);
@@ -279,27 +308,25 @@ const App: React.FC = () => {
   }, [controllerPlayNote, controllerStopNote]);
 
   // Function to synchronize keyboard colors with MIDI note map
-  const sendKeyboardColors = (map: NoteMap) => {
+  const sendAllKeyboardColors = (map: NoteMap) => {
     Object.entries(map).forEach(([note, mapping]) => {
       sendMIDIPacket([0x90, parseInt(note), mapping.restColor]);
     });
   };
 
-  // Update setNoteMap to use the single source of truth and save to sessionStorage
   const setNoteMap = (newNoteMap: NoteMap) => {
     setNoteMapWithoutSync(newNoteMap);
-    sendKeyboardColors(newNoteMap);
+    sendAllKeyboardColors(newNoteMap);
     // Save to sessionStorage
     sessionStorage.setItem('noteMap', JSON.stringify(newNoteMap));
   };
 
-    // Function to synchronize keyboard colors with MIDI note map
   const synchronizeKeyboardColors = () => {
-    sendKeyboardColors(noteMap);
+    sendAllKeyboardColors(noteMap);
   };
 
   // Update the propagateDefaultColors function to use colorSettings
-  const propagateDefaultColors = () => {
+  const propagateDefaultColors = React.useCallback(() => {
     const newNoteMap = { ...noteMap };
     
     Object.keys(newNoteMap).forEach(noteStr => {
@@ -314,7 +341,7 @@ const App: React.FC = () => {
     });
     
     setNoteMap(newNoteMap);
-  };
+  }, [noteMap, colorSettings]);
 
   // Fix the MIDI device creation
   const createMIDIDevice = (device: WebMidi.MIDIInput | WebMidi.MIDIOutput): MIDIDevice => {
@@ -426,23 +453,17 @@ const App: React.FC = () => {
       </div>
 
       <div className="section">
-        <h3>Linear Keyboard Layout</h3>
-        <LinearKeyboardGenerator 
-          onUpdateMapping={setNoteMap}
-          colorSettings={colorSettings}
-        />
-      </div>
-
-      <div className="section">
         <h3>Launchpad Layout</h3>
         <GridKeyboard
           onKeyPress={(k) => controllerPlayNote(k)}
           onKeyRelease={controllerStopNote}
           setNoteMap={setNoteMap}
+          activeNotes={activeNotes}
           activeKeys={activeKeys}
           noteMap={noteMap}
+          showSameNotePressed={showSameNotePressed}
         />
-        <p className="note">Click note label to edit, click pad edges to play, right-click to open color picker (Shift+Right-click for pressed color)</p>
+        <p className="note">Click note label to edit, click pad edges to play, right-click to open color picker</p>
       </div>
 
       <div className="section">
@@ -458,15 +479,38 @@ const App: React.FC = () => {
       
       <div className="section">
         <div className="mapping-container">
+          <h3>Settings</h3>
+          <div className="color-controls">
+            <label>
+              <input type="checkbox" checked={showSameNotePressed} 
+                     onChange={() => setshowSameNotePressed(!showSameNotePressed)} />
+              Show same note pressed
+            </label>
+            </div>
+          <div className="color-controls">
+            <button onClick={synchronizeKeyboardColors}> Sync Keyboard </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="mapping-container">
           <MIDINoteMap
             noteMap={noteMap}
             onUpdateMapping={setNoteMap}
           />
           <div className="color-controls">
-            <button onClick={() => setNoteMap(DEFAULT_MAPPINGS)}> Reset Keyboard </button>
-            <button onClick={synchronizeKeyboardColors}> Sync Keyboard </button>
+            <button onClick={() => setNoteMap(DEFAULT_MAPPINGS)}> Reset Keyboard Layout </button>
           </div>
         </div>
+      </div>
+      
+      <div className="section">
+        <h3>Direct Keyboard Layout</h3>
+        <DirectKeyboardGenerator 
+          onUpdateMapping={setNoteMap}
+          colorSettings={colorSettings}
+        />
       </div>
     </div>
   );

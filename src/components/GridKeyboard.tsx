@@ -1,18 +1,20 @@
-import React, { useState } from 'react';
-import { NoteMapping, NoteState } from '../types';
+import React, { useEffect, useState } from 'react';
+import { isActiveNote, KeyState, NoteState } from '../types';
 import { launchpadColorToHexString, getTextColor } from '../types/colors';
 import FloatingColorPicker from './FloatingColorPicker';
 import { stringToNote, Note, LaunchpadColor, NoteMap, noteToString, GRID_LAYOUT } from '../types/notes';
 
 interface GridKeyboardProps {
-  activeKeys: NoteState;
+  activeNotes: NoteState;
+  activeKeys: KeyState;
   onKeyPress: (note: Note) => void;
   onKeyRelease: (note: Note) => void;
   noteMap: NoteMap;
   setNoteMap: (noteMap: NoteMap) => void;
+  showSameNotePressed: boolean;
 }
 
-const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, onKeyRelease: onNoteRelease, setNoteMap, activeKeys, noteMap }) => {
+const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress, onKeyRelease, setNoteMap, activeNotes, activeKeys, noteMap, showSameNotePressed }) => {
   const [editingCell, setEditingCell] = useState<Note | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [colorPickerCell, setColorPickerCell] = useState<Note | null>(null);
@@ -63,52 +65,55 @@ const GridKeyboard: React.FC<GridKeyboardProps> = ({ onKeyPress: onNotePress, on
     }
   };
 
-  const noteComponent = (src: Note) => (
-    <div
-      key={`cell-${src}`}
-      className={`grid-cell ${activeKeys[src] ? 'active' : ''}`}
-      style={{
-        backgroundColor: launchpadColorToHexString(activeKeys[src] ? noteMap[src].pressedColor : noteMap[src].restColor) 
-      }}
-      onMouseDown={(e) => {
-        if (!e.defaultPrevented) {
-          onNotePress(src);
-        }
-      }}
-      onMouseUp={() => onNoteRelease(src)}
-      onMouseLeave={() => activeKeys[src] && onNoteRelease(src)}
-      onContextMenu={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setColorPickerCell(src);
-      }} >
-      {editingCell === src ? (
-        <input
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleEditKeyDown}
-          onBlur={handleEditSubmit}
-          autoFocus
-          onClick={(e) => e.stopPropagation()}
-        />
-      ) : (
-        <div className="cell-content">
-          <div 
-            className="note-name" 
-            style={{
-              color: getTextColor(activeKeys[src] ? noteMap[src].pressedColor : noteMap[src].restColor)
-            }}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleEditStart(src);
-            }}
-          >{noteToString(noteMap[src].target)}</div>
-        </div>
-      )}
-    </div>
-  );
+  const noteComponent = React.useCallback((src: Note) => {
+    let keyColor = activeKeys[src] || (showSameNotePressed && isActiveNote(activeNotes, noteMap[src].target))
+                 ? noteMap[src].pressedColor 
+                 : noteMap[src].restColor;
+    return (<div
+        key={`cell-${src}`}
+        className={`grid-cell ${activeKeys[src] ? 'active' : ''}`}
+        style={{
+          backgroundColor: launchpadColorToHexString(keyColor) 
+        }}
+        onMouseDown={(e) => {
+          if (!e.defaultPrevented) {
+            onKeyPress(src);
+          }
+        }}
+        onMouseUp={() => onKeyRelease(src)}
+        onMouseLeave={() => activeKeys[src] && onKeyRelease(src)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setColorPickerCell(src);
+        }} >
+        {editingCell === src ? (
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleEditKeyDown}
+            onBlur={handleEditSubmit}
+            autoFocus
+            onClick={(e) => e.stopPropagation()}
+          />
+        ) : (
+          <div className="cell-content">
+            <div 
+              className="note-name" 
+              style={{
+                color: getTextColor(keyColor)
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleEditStart(src);
+              }}
+            >{noteToString(noteMap[src].target)}</div>
+          </div>
+        )}
+      </div>);
+  }, [activeKeys, activeNotes, noteMap, showSameNotePressed]);
 
   return (
     <div className="grid-keyboard-container">

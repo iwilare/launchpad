@@ -5,18 +5,6 @@ export interface SoundSettings {
   waveform: OscillatorType;
 }
 
-export interface NoteMapping {
-  note: number;
-  key: Note;
-  restColor: string;
-  pressedColor: string;
-}
-
-export interface ColorSettings {
-  [key: string]: string;
-}
-
-
 export interface MIDIDevice {
   id: string;
   name: string;
@@ -27,7 +15,24 @@ export interface MIDIDevice {
 }
 
 export interface NoteState {
-  [key: number]: boolean;
+  [key: number]: number; // number of times the note is being pressed
+}
+
+export const addNote = (noteState: NoteState, note: number) => {
+  return { ...noteState, [note]: (noteState[note] || 0) + 1 };
+}
+
+export const removeNote = (noteState: NoteState, note: number) => {
+  return noteState[note] ? { ...noteState, [note]: Math.max(0, noteState[note] - 1) } 
+                         : noteState
+}
+
+export const isActiveNote = (noteState: NoteState, note: number) => {
+  return noteState[note] && noteState[note] > 0;
+}
+
+export const isLastNote = (noteState: NoteState, note: number) => {
+  return noteState[note] && noteState[note] == 1;
 }
 
 export interface KeyState {

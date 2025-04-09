@@ -14,10 +14,10 @@ interface Props {
 
 const IsomorphicKeyboardGenerator: React.FC<Props> = ({ onUpdateMapping, colorSettings }) => {
   const [startNote, setStartNote] = useState<Note>(DEFAULT_BASE_NOTE);
-  const [horizontalStep, setHorizontalStep] = useState<number>(2);
-  const [verticalStep, setVerticalStep] = useState<number>(1);
+  const [horizontalStep, setHorizontalStep] = useState<number>(4);
+  const [verticalStep, setVerticalStep] = useState<number>(3);
 
-  const generateIsomorphicLayout = () => {
+  const generateIsomorphicLayout = (startNote: Note) => {
     const noteMap: NoteMap = {};
     
     // Iterate through the gridLayout structure
@@ -57,6 +57,7 @@ const IsomorphicKeyboardGenerator: React.FC<Props> = ({ onUpdateMapping, colorSe
                 onClick={() => {
                   if (startNote < 127) {
                     setStartNote((startNote + 1) as Note);
+                    generateIsomorphicLayout(startNote + 1);
                   }
                 }}
                 disabled={startNote >= 127}
@@ -65,6 +66,7 @@ const IsomorphicKeyboardGenerator: React.FC<Props> = ({ onUpdateMapping, colorSe
                 onClick={() => {
                   if (startNote > 0) {
                     setStartNote((startNote - 1) as Note);
+                    generateIsomorphicLayout(startNote - 1);
                   }
                 }}
                 disabled={startNote <= 0}
@@ -94,7 +96,7 @@ const IsomorphicKeyboardGenerator: React.FC<Props> = ({ onUpdateMapping, colorSe
         </div>
       </div>
       <button
-        onClick={generateIsomorphicLayout}
+        onClick={() => generateIsomorphicLayout(startNote)}
         className="generate-button"
       >
         Generate Layout

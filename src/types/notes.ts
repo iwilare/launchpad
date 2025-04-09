@@ -14,7 +14,7 @@ export enum NoteName {
   B = 'B'
 }
 
-export const DEFAULT_BASE_NOTE = 50;
+export const DEFAULT_BASE_NOTE = 42;
 
 export const LOWEST_CONTROLLER_NOTE = 36;
 
@@ -46,17 +46,15 @@ export type NoteMap = {
 
 // Interface for a MIDI note mapping
 export interface NiceNoteMapping {
-  from: number;
-  name: string;
-  octave: number;
-  restColor: LaunchpadColor;
-  pressedColor: LaunchpadColor;
+  k: number;
+  n: string;
+  o: number;
+  r: LaunchpadColor;
+  p: LaunchpadColor;
 }
 
 // Map of MIDI notes to their mappings
-export type NiceNoteMap = {
-  [key: Note]: NiceNoteMapping;
-};
+export type NiceNoteMap = NiceNoteMapping[];
 
 // Helper function to check if a note is a black key
 export const isBlackKey = (note: NoteName): boolean => {
@@ -139,27 +137,27 @@ export const isBlackNote = (note: Note): boolean => {
   return isBlackKey(noteToNoteRepr(note).name);
 };
 
-export const niceNoteMapStringToNoteMap = (niceNoteMapString: string): NoteMap | string => {
-  try {
-    // TODO: Check if casting can be done
-    const niceNoteMap = JSON.parse(niceNoteMapString) as NiceNoteMap;
-    const noteMap: NoteMap = {};
-    for (const [key, value] of Object.entries(niceNoteMap)) {
-      let val = stringToNoteName(value.name);
-      if (!val) {
-        return 'Invalid note name ' + value.name;
-      }
-      noteMap[parseInt(key)] = {
-        target: noteReprToNote({ name: val, octave: value.octave }),
-        restColor: value.restColor,
-        pressedColor: value.pressedColor
-      };
-    }
-    return noteMap;
-  } catch (error) {
-    return 'Invalid JSON format';
-  }
-};
+// export const niceNoteMapStringToNoteMap = (niceNoteMapString: string): NoteMap | string => {
+//   try {
+//     // TODO: Check if casting can be done
+//     const niceNoteMap = JSON.parse(niceNoteMapString) as NiceNoteMap;
+//     const noteMap: NoteMap = {};
+//     for (const [key, value] of Object.entries(niceNoteMap)) {
+//       let val = stringToNoteName(value.name);
+//       if (!val) {
+//         return 'Invalid note name ' + value.name;
+//       }
+//       noteMap[parseInt(key)] = {
+//         target: noteReprToNote({ name: val, octave: value.octave }),
+//         restColor: value.restColor,
+//         pressedColor: value.pressedColor
+//       };
+//     }
+//     return noteMap;
+//   } catch (error) {
+//     return 'Invalid JSON format';
+//   }
+// };
 
 export const GRID_LAYOUT: Note[][] = [
   // Row 0 (bottom row)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NoteMapping, LaunchpadColor, NoteMap, Note, noteToNoteRepr, niceNoteMapStringToNoteMap, isBlackNote } from '../types/notes';
+import { NoteMapping, LaunchpadColor, NoteMap, Note, noteToNoteRepr, isBlackNote } from '../types/notes';
 import { launchpadColorToHexString } from '../types/colors';
 import { noteToString, isBlackKey, stringToNote, stringToNoteName, noteReprToNote } from '../types/notes';
 import ColorButton from './ColorButton';
@@ -53,7 +53,7 @@ const MIDINoteMap: React.FC<Props> = ({ noteMap, onUpdateMapping }) => {
       .map(([sourceNote, mapping]) => {
         const noteRepr = noteToNoteRepr(mapping.target);
         const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
-        return `  { "from": ${sourceNote}, "name": "${noteRepr.name}"${namePadding}, "octave": ${noteRepr.octave}, "restColor": ${mapping.restColor}, "pressedColor": ${mapping.pressedColor} }`;
+        return `  { "k": ${sourceNote}, "n": "${noteRepr.name}"${namePadding}, "o": ${noteRepr.octave}, "c": ${mapping.restColor}, "p": ${mapping.pressedColor} }`;
       })
       .join(',\n');
     setJsonValue('[\n' + formattedJson + '\n]');
@@ -75,30 +75,30 @@ const MIDINoteMap: React.FC<Props> = ({ noteMap, onUpdateMapping }) => {
       }
 
       const isValid = parsedJson.every(mapping => 
-        typeof mapping?.from === 'number' && 
-        typeof mapping?.name === 'string' && 
-        typeof mapping?.octave === 'number' && 
-        typeof mapping?.restColor === 'number' && 
-        typeof mapping?.pressedColor === 'number'
+        typeof mapping?.k === 'number' && 
+        typeof mapping?.n === 'string' && 
+        typeof mapping?.o === 'number' && 
+        typeof mapping?.r === 'number' && 
+        typeof mapping?.p === 'number'
       );
 
       if (!isValid) {
-        setJsonError('Each mapping must have: from (number), name (string), octave (number), restColor (number), pressedColor (number)');
+        setJsonError('Each mapping must have: k (number), n (string), o (number), c (number), p (number)');
         return;
       }
 
       const newNoteMap: NoteMap = {};
       for (const mapping of parsedJson) {
-        const noteName = stringToNoteName(mapping.name);
+        const noteName = stringToNoteName(mapping.n);
         if (!noteName) {
-          setJsonError(`Invalid note name: ${mapping.name}`);
+          setJsonError(`Invalid note name: ${mapping.n}`);
           return;
         }
         
-        newNoteMap[mapping.from] = {
-          target: noteReprToNote({ name: noteName, octave: mapping.octave }),
-          restColor: mapping.restColor,
-          pressedColor: mapping.pressedColor
+        newNoteMap[mapping.k] = {
+          target: noteReprToNote({ name: noteName, octave: mapping.o }),
+          restColor: mapping.c,
+          pressedColor: mapping.p
         };
       }
       

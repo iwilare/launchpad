@@ -35,11 +35,11 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [soundSettings, setSoundSettings] = useState<SoundSettings>({
     volume: 0.20,
-    waveform: 'square'
+    waveform: 'sine'
   });
   const audioContextRef = useRef<AudioContext | null>(null);
-  const gainNodesRef = useRef<{[key: Note]: GainNode}>({});
   const oscillatorsRef = useRef<{[key: Note]: OscillatorNode}>({});
+  const envelopesRef = useRef<{[key: Note]: GainNode}>({});
   const [colorSettings, setColorSettings] = useState<ColorSettings>({
     whiteRest: 0x4E,
     whitePressed: 0x15,
@@ -185,43 +185,55 @@ const App: React.FC = () => {
   }, [midiAccess, selectedOutputDevice]);
 
   const stopAudioNote = React.useCallback((note: number) => {
-    const oscillator = oscillatorsRef.current[note];
-    const gainNode = gainNodesRef.current[note];
-
-    if (oscillator && gainNode && audioContextRef.current) {
-      oscillator.stop();
-      delete oscillatorsRef.current[note];
-      delete gainNodesRef.current[note];
+    const envelope = envelopesRef.current[note];
+    if (envelope && audioContextRef.current) {
+      // Create a smooth release
+      envelope.gain.cancelScheduledValues(audioContextRef.current.currentTime);
+      envelope.gain.setValueAtTime(envelope.gain.value, audioContextRef.current.currentTime);
+      envelope.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 0.1);
     }
   }, []);
 
   const playAudioNote = React.useCallback((note: number, velocity: number = 1.0) => {
     if (!audioContextRef.current) return;
-    stopAudioNote(note);
-    const oscillator = audioContextRef.current.createOscillator();
-    const gainNode = audioContextRef.current.createGain();
 
-    oscillator.type = soundSettings.waveform;
+    // Create or reuse oscillator and envelope
+    if (!oscillatorsRef.current[note]) {
+      const oscillator = audioContextRef.current.createOscillator();
+      const envelope = audioContextRef.current.createGain();
+      
+      oscillator.type = soundSettings.waveform;
+      oscillator.frequency.setValueAtTime(
+        440 * Math.pow(2, (note - 69) / 12),
+        audioContextRef.current.currentTime
+      );
 
-    oscillator.frequency.setValueAtTime(
-      440 * Math.pow(2, (note - 69) / 12),
-      audioContextRef.current.currentTime
-    );
+      // Set up envelope
+      envelope.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+      envelope.gain.linearRampToValueAtTime(velocity * soundSettings.volume * 0.30, 
+        audioContextRef.current.currentTime + 0.01);
 
-    // TODO: Arbitrary multiplier to make the note quieter
-    gainNode.gain.setValueAtTime(velocity * soundSettings.volume * 0.30, audioContextRef.current.currentTime);
+      // Connect nodes
+      oscillator.connect(envelope);
+      envelope.connect(audioContextRef.current.destination);
 
-    // Connect nodes
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContextRef.current.destination);
+      // Start the oscillator
+      oscillator.start();
 
-    // Start the oscillator
-    oscillator.start();
-
-    // Store references
-    oscillatorsRef.current[note] = oscillator;
-    gainNodesRef.current[note] = gainNode;
-  }, [soundSettings, stopAudioNote]);
+      // Store references
+      oscillatorsRef.current[note] = oscillator;
+      envelopesRef.current[note] = envelope;
+    } else {
+      // Reuse existing oscillator and envelope
+      const envelope = envelopesRef.current[note];
+      if (envelope) {
+        envelope.gain.cancelScheduledValues(audioContextRef.current.currentTime);
+        envelope.gain.setValueAtTime(0, audioContextRef.current.currentTime);
+        envelope.gain.linearRampToValueAtTime(velocity * soundSettings.volume * 0.30, 
+          audioContextRef.current.currentTime + 0.01);
+      }
+    }
+  }, [soundSettings]);
 
   const sendColorPacketSingle = React.useCallback((key: Note, color: number) => {
     if (!midiAccess) return;

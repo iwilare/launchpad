@@ -224,13 +224,15 @@ const App: React.FC = () => {
   }, [soundSettings, stopAudioNote]);
 
   const sendColorPacketSingle = React.useCallback((key: Note, color: number) => {
+    if (!midiAccess) return;
     const out = sendMIDIPacket([0x90, key, color]);
     if(out !== null) {
       console.error("Failed to send MIDI packet: ", out);
     }
-  }, []);
+  }, [midiAccess]);
 
   const sendColorPacketAllNotes = React.useCallback((key: Note, color: number) => {
+    if (!midiAccess) return;
     Object.entries(noteMap).forEach(([otherKeyAsForcedString, mapping]) => {
       const otherKey = parseInt(otherKeyAsForcedString);
       if (mapping.target === noteMap[key].target) {
@@ -240,20 +242,24 @@ const App: React.FC = () => {
         }
       }
     });
-  }, [noteMap]);
+  }, [noteMap, midiAccess]);
 
   // Function to handle note press/release
   const controllerPlayNote = React.useCallback((key: Note, velocity: number = 1.0) => {
-    if (!isActiveNote(activeNotes, noteMap[key].target)) {
-      playAudioNote(noteMap[key].target, velocity);
-      if (showSameNotePressed) 
+    if (showSameNotePressed) {
+      if (!isActiveNote(activeNotes, noteMap[key].target)) {
+        playAudioNote(noteMap[key].target, velocity);
         sendColorPacketAllNotes(key, noteMap[key].pressedColor);
-      else
-        sendColorPacketSingle(key, noteMap[key].pressedColor);
+      }
+    } else {
+      if (!isActiveNote(activeNotes, noteMap[key].target)) {
+        playAudioNote(noteMap[key].target, velocity);
+      }
+      sendColorPacketSingle(key, noteMap[key].pressedColor);
     }
     setActiveKeys(p => ({ ...p, [key]: true }));
     setActiveNotes(p => addNote(p, noteMap[key].target));
-  }, [noteMap, activeKeys, activeNotes, playAudioNote, sendMIDIPacket]);
+  }, [noteMap, activeKeys, activeNotes, showSameNotePressed, playAudioNote, sendMIDIPacket]);
   
   const controllerStopNote = React.useCallback((key: Note) => {
     if (showSameNotePressed) {
@@ -269,7 +275,7 @@ const App: React.FC = () => {
     }
     setActiveKeys(p => ({ ...p, [key]: false }));
     setActiveNotes(p => removeNote(p, noteMap[key].target));
-  }, [noteMap, activeKeys, activeNotes, stopAudioNote, sendMIDIPacket]);
+  }, [noteMap, activeKeys, activeNotes, showSameNotePressed, stopAudioNote, sendMIDIPacket]);
 
   const onMIDIMessage = React.useCallback((event: WebMidi.MIDIMessageEvent) => {
     const [status, note, velocity] = Array.from(event.data);

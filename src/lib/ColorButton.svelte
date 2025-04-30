@@ -18,23 +18,22 @@
 </script>
 
 <div class="color-button-container">
-  <div
+  <button
     class="color-preview"
-    role="button"
     tabindex={index}
     style="background-color: {launchpadColorToHexString(value)}; color: {getTextColor(value)}"
     on:click={() => showPicker = true}
   >
     {launchpadColorToString(value)}
-  </div>
+  </button>
   {#if showPicker}
     <FloatingColorPicker
       {value}
-      on:change={(e) => {
-        onChange(e.detail);
+      onChange={(e) => {
+        onChange(e);
         showPicker = false;
       }}
-      on:close={() => showPicker = false}
+      onClose={() => showPicker = false}
       style={pickerStyle}
     />
   {/if}

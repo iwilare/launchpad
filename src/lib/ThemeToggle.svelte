@@ -1,11 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { createEventDispatcher } from 'svelte';
 
-  export let theme: 'light' | 'dark';
-  const dispatch = createEventDispatcher<{
-    themeChange: 'light' | 'dark';
-  }>();
+  export let onThemeChange: (theme: 'light' | 'dark') => void;
 
   let isDarkMode = false;
 
@@ -22,12 +18,12 @@
     if (savedTheme) {
       // Use saved theme if available
       isDarkMode = savedTheme === 'dark';
-      dispatch('themeChange', savedTheme as 'light' | 'dark');
+      onThemeChange(savedTheme as 'light' | 'dark');
     } else {
       // Otherwise use time-based theme
       const darkMode = isNightTime();
       isDarkMode = darkMode;
-      dispatch('themeChange', darkMode ? 'dark' : 'light');
+      onThemeChange(darkMode ? 'dark' : 'light');
     }
     
     // Set up interval to check time every minute
@@ -37,7 +33,7 @@
         const shouldBeDark = isNightTime();
         if (shouldBeDark !== isDarkMode) {
           isDarkMode = shouldBeDark;
-          dispatch('themeChange', shouldBeDark ? 'dark' : 'light');
+          onThemeChange(shouldBeDark ? 'dark' : 'light');
         }
       }
     }, 60000); // Check every minute
@@ -49,7 +45,7 @@
   function toggleTheme() {
     const newTheme = isDarkMode ? 'light' : 'dark';
     isDarkMode = !isDarkMode;
-    dispatch('themeChange', newTheme);
+    onThemeChange(newTheme);
     // Save preference to localStorage
     localStorage.setItem('theme', newTheme);
   }
@@ -68,38 +64,30 @@
 </button>
 
 <style>
-  .theme-toggle {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 24px;
-    color: var(--text-color);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    transition: background-color var(--transition-speed);
-    z-index: 1000;
-    padding: 0;
-    line-height: 1;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  }
+.theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  transition: background-color var(--transition-speed);
+  z-index: 1000;
+  padding: 0;
+  line-height: 1;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
 
-  .theme-toggle:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-    transform: scale(1.1);
-  }
-
-  [data-theme="dark"] .theme-toggle:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
-
-  [data-theme="dark"] .theme-toggle {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
-  }
+.theme-toggle:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  transform: scale(1.1);
+}
 </style> 

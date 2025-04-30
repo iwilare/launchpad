@@ -97,25 +97,6 @@
     gap: 8px;
   }
 
-  .isomorphic-keyboard-generator input[type="number"],
-  .isomorphic-keyboard-generator .note-input {
-    width: 40px;
-    padding: 4px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background: var(--input-bg);
-    color: var(--text-color);
-    font-family: monospace;
-    font-size: 14px;
-    text-align: right;
-  }
-
-  [data-theme="dark"] .isomorphic-keyboard-generator input[type="number"],
-  [data-theme="dark"] .isomorphic-keyboard-generator .note-input {
-    background: var(--input-bg);
-    color: var(--text-color);
-  }
-
   .note-input-container {
     display: flex;
     align-items: center;

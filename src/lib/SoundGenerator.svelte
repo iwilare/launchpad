@@ -64,11 +64,11 @@
 
 <style>
   .sound-generator {
-    background: var(--sound-generator-bg);
+    background: var(--section-bg);
     padding: 20px;
     border-radius: 8px;
     border: 1px solid var(--border-color);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px var(--shadow-color);
   }
 
   .control-row {
@@ -110,6 +110,6 @@
     min-width: 40px;
     text-align: right;
     font-size: 14px;
-    color: var(--note-color);
+    color: var(--launchpad-layout-tooltip);
   }
 </style>

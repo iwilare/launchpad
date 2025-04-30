@@ -1,23 +1,19 @@
 <script lang="ts">
-  import { createEventDispatcher } from 'svelte';
-  import { isActiveNote } from '../types';
   import { launchpadColorToHexString, getTextColor } from '../types/colors';
   import FloatingColorPicker from './FloatingColorPicker.svelte';
   import { stringToNote, type Note, type LaunchpadColor, type NoteMap, noteToString, GRID_LAYOUT } from '../types/notes';
 
-  export let activeNotes: { [key: number]: number };
-  export let activeKeys: { [key: Note]: boolean };
-  export let onKeyPress: (note: Note) => void;
-  export let onKeyRelease: (note: Note) => void;
+  export let activeNotes: { [key: number]: number } = {};
+  export let activeKeys: { [key: number]: boolean } = {};
+  export let onKeyPress: (note: number) => void;
+  export let onKeyRelease: (note: number) => void;
   export let noteMap: NoteMap;
   export let setNoteMap: (noteMap: NoteMap) => void;
   export let showSameNotePressed: boolean;
 
-  const dispatch = createEventDispatcher<{
-    keyPress: Note;
-    keyRelease: Note;
-    updateMapping: { newNoteMap: NoteMap };
-  }>();
+  const isActiveNote = (noteState: { [key: number]: number }, note: number) => {
+    return noteState[note] && noteState[note] > 0;
+  };
 
   let editingCell: Note | null = null;
   let editValue = '';
@@ -88,13 +84,9 @@
               on:mousedown={(e) => {
                 if (!e.defaultPrevented) {
                   onKeyPress(src);
-                  dispatch('keyPress', src);
                 }
               }}
-              on:mouseup={() => {
-                onKeyRelease(src);
-                dispatch('keyRelease', src);
-              }}
+              on:mouseup={() => onKeyRelease(src)}
               on:mouseleave={() => activeKeys[src] && onKeyRelease(src)}
               on:contextmenu|preventDefault={(e) => {
                 e.stopPropagation();
@@ -128,8 +120,8 @@
   {#if colorPickerCell}
     <FloatingColorPicker
       value={noteMap[colorPickerCell].restColor}
-      on:change={(e) => handleColorChange(e.detail)}
-      on:close={() => colorPickerCell = null}
+      onChange={handleColorChange}
+      onClose={() => colorPickerCell = null}
       position="center"
     />
   {/if}
@@ -149,12 +141,12 @@
     flex-direction: column;
     gap: 8px;
     padding: 24px;
-    background-color: #1a1a1a;
+    background-color: var(--section-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     max-width: 600px;
     margin: 0 auto;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 12px var(--shadow-color);
   }
 
   .grid-container {
@@ -205,28 +197,29 @@
 
   .note-name {
     font-size: 12px;
-    color: rgba(255, 255, 255, 0.9);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    color: var(--text-color);
+    text-shadow: 0 1px 2px var(--shadow-color);
     font-weight: 500;
   }
 
   .grid-cell input {
     width: 80%;
     text-align: center;
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--input-bg);
     border: none;
     border-radius: 4px;
     padding: 4px;
     font-size: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 1px 3px var(--shadow-color);
+    color: var(--text-color);
   }
 
   [data-theme="dark"] .grid-keyboard {
-    background-color: #1a1a1a;
+    background-color: var(--section-bg);
   }
 
   [data-theme="dark"] .grid-cell input {
-    background: rgba(255, 255, 255, 0.15);
-    color: #ffffff;
+    background: var(--input-bg);
+    color: var(--text-color);
   }
 </style> 

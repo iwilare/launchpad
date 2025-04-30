@@ -1,5 +1,4 @@
-import { NoteMapping } from './notes';
-import { LaunchpadColor } from './notes';
+import type { LaunchpadColor } from './notes';
 
 // Launchpad Mini color data - using hexadecimal numbers as keys
 export const LaunchpadColors: Record<LaunchpadColor, string> = {

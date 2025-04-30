@@ -1,16 +1,20 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { LaunchpadColors, launchpadColorToHexString, getTextColor } from '../types/colors';
-  import type { LaunchpadColor } from '../types/notes';
+  import { onMount } from "svelte";
+  import {
+    LaunchpadColors,
+    launchpadColorToHexString,
+    getTextColor,
+  } from "../types/colors";
+  import type { LaunchpadColor } from "../types/notes";
 
   export let value: LaunchpadColor;
-  export let position: 'center' | 'relative' = 'relative';
+  export let position: "center" | "relative" = "relative";
   export let style: Record<string, string> = {};
   export let onChange: (color: LaunchpadColor) => void;
   export let onClose: () => void;
 
   let pickerRef: HTMLDivElement;
-  let searchTerm = '';
+  let searchTerm = "";
 
   function handleClickOutside(event: MouseEvent) {
     if (pickerRef && !pickerRef.contains(event.target as Node)) {
@@ -19,8 +23,8 @@
   }
 
   onMount(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   });
 </script>
 
@@ -29,8 +33,12 @@
   class="floating-color-picker"
   style="
     position: {position === 'center' ? 'fixed' : 'absolute'};
-    {position === 'center' ? 'top: 50%; left: 50%; transform: translate(-50%, -50%);' : ''}
-    {Object.entries(style).map(([key, value]) => `${key}: ${value};`).join('')}
+    {position === 'center'
+    ? 'top: 50%; left: 50%; transform: translate(-50%, -50%);'
+    : ''}
+    {Object.entries(style)
+    .map(([key, value]) => `${key}: ${value};`)
+    .join('')}
   "
 >
   <input
@@ -41,18 +49,22 @@
   />
   <div class="color-grid">
     {#each Object.entries(LaunchpadColors) as [codeAsForcedString, hexColor]}
-      {#if !searchTerm || codeAsForcedString.toLowerCase().includes(searchTerm.toLowerCase())}
+      {#if !searchTerm || codeAsForcedString
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase())}
         {@const code = parseInt(codeAsForcedString)}
-        {@const hexCode = Number(code).toString(16).padStart(2, '0').toUpperCase()}
-        <div
-          role="button"
+        {@const hexCode = Number(code)
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}
+        <button
           class="color-option {code === value ? 'selected' : ''}"
           style="background-color: {hexColor}; color: {getTextColor(code)}"
           on:click={() => onChange(code)}
           title="Color {hexCode}"
         >
           {hexCode}
-        </div>
+        </button>
       {/if}
     {/each}
   </div>
@@ -115,7 +127,7 @@
     border: 2px solid var(--text-color);
     box-shadow: 0 0 0 1px var(--border-color);
   }
-  
+
   .color-grid {
     display: grid;
     grid-template-columns: repeat(8, 1fr);
@@ -162,5 +174,4 @@
     color: var(--text-color);
     font-size: 14px;
   }
-
-</style> 
+</style>

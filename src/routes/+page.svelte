@@ -8,54 +8,13 @@
   import ThemeToggle from "$lib/ThemeToggle.svelte";
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
-  import DirectKeyboardGenerator from "$lib/DirectKeyboardGenerator.svelte";
   import {
     type Note,
     type NoteMap,
     noteToString,
-    isBlackNote,
     DEFAULT_MAPPINGS,
   } from "../types/notes";
-
-  interface SoundSettings {
-    volume: number;
-    waveform: OscillatorType;
-  }
-
-  interface MIDIDevice {
-    id: string;
-    name: string;
-    manufacturer: string;
-    state: "connected" | "disconnected";
-    connection: "closed" | "open" | "pending";
-    type: "input" | "output";
-  }
-
-  interface NoteState {
-    [key: number]: number; // number of times the note is being pressed
-  }
-
-  const addNote = (noteState: NoteState, note: number) => {
-    return { ...noteState, [note]: (noteState[note] || 0) + 1 };
-  };
-
-  const removeNote = (noteState: NoteState, note: number) => {
-    return noteState[note]
-      ? { ...noteState, [note]: Math.max(0, noteState[note] - 1) }
-      : noteState;
-  };
-
-  const isActiveNote = (noteState: NoteState, note: number) => {
-    return noteState[note] && noteState[note] > 0;
-  };
-
-  const isLastNote = (noteState: NoteState, note: number) => {
-    return noteState[note] && noteState[note] == 1;
-  };
-
-  interface KeyState {
-    [key: Note]: boolean;
-  }
+    import { applyColorsToMap, colorFromSettings, type MIDIDevice, type KeyState, type NoteState, type ShowSameNote, type SoundSettings, isActiveNote, addNote, isLastNote, removeNote } from '../types/ui';
 
   let midiAccess: WebMidi.MIDIAccess | null = null;
   let inputDevices: MIDIDevice[] = [];
@@ -64,7 +23,7 @@
   let selectedOutputDevice = "";
   let activeNotes: NoteState = {};
   let activeKeys: KeyState = {};
-  let showSameNotePressed = true;
+  let showSameNotePressed: ShowSameNote = 'yes';
   let noteMap: NoteMap = DEFAULT_MAPPINGS;
 
   let theme: "light" | "dark" = "dark";
@@ -76,10 +35,13 @@
   let gainNodes: { [key: Note]: GainNode } = {};
   let oscillators: { [key: Note]: OscillatorNode } = {};
   let colorSettings = {
+    isUniform: true,
     whiteRest: 0x4e,
     whitePressed: 0x15,
     blackRest: 0x5f,
     blackPressed: 0x15,
+    uniformRest: 0x4e,
+    uniformPressed: 0x15
   };
 
   // Handle theme change
@@ -216,6 +178,10 @@
   }
 
   function playAudioNote(note: number, velocity: number = 1.0) {
+    return playAudioNoteWithSynth(note, velocity);
+  }
+
+  function playAudioNoteWithSynth(note: number, velocity: number = 1.0) {
     if (!audioContext) return;
     stopAudioNote(note);
     const oscillator = audioContext.createOscillator();
@@ -264,32 +230,32 @@
   }
 
   function controllerPlayNote(key: Note, velocity: number = 1.0) {
-    if (showSameNotePressed) {
+    if (showSameNotePressed === 'no') {
       if (!isActiveNote(activeNotes, noteMap[key].target)) {
         playAudioNote(noteMap[key].target, velocity);
-        sendColorPacketAllNotes(key, noteMap[key].pressedColor);
       }
+      sendColorPacketSingle(key, noteMap[key].color.pressed);
     } else {
       if (!isActiveNote(activeNotes, noteMap[key].target)) {
         playAudioNote(noteMap[key].target, velocity);
+        sendColorPacketAllNotes(key, noteMap[key].color.pressed);
       }
-      sendColorPacketSingle(key, noteMap[key].pressedColor);
     }
     activeKeys = { ...activeKeys, [key]: true };
     activeNotes = addNote(activeNotes, noteMap[key].target);
   }
 
   function controllerStopNote(key: Note) {
-    if (showSameNotePressed) {
+    if (showSameNotePressed === 'no') {
       if (isLastNote(activeNotes, noteMap[key].target)) {
         stopAudioNote(noteMap[key].target);
-        sendColorPacketAllNotes(key, noteMap[key].restColor);
       }
+      sendColorPacketSingle(key, noteMap[key].color.rest);
     } else {
       if (isLastNote(activeNotes, noteMap[key].target)) {
         stopAudioNote(noteMap[key].target);
+        sendColorPacketAllNotes(key, noteMap[key].color.rest);
       }
-      sendColorPacketSingle(key, noteMap[key].restColor);
     }
     activeKeys = { ...activeKeys, [key]: false };
     activeNotes = removeNote(activeNotes, noteMap[key].target);
@@ -324,18 +290,16 @@
     } else if (messageType === 0xd0) {
       description = `Channel Pressure: Pressure: ${note}, Channel: ${channel + 1}`;
     } else {
-      console.log(
+      console.error(
         "Unrecognized MIDI message type:",
         `0x${messageType.toString(16).toUpperCase()}`,
       );
     }
-
-    console.log(description);
   }
 
   function sendAllKeyboardColors(map: NoteMap) {
     Object.entries(map).forEach(([note, mapping]) => {
-      sendMIDIPacket([0x90, parseInt(note), mapping.restColor]);
+      sendMIDIPacket([0x90, parseInt(note), mapping.color.rest]);
     });
   }
 
@@ -347,25 +311,6 @@
 
   function synchronizeKeyboardColors() {
     sendAllKeyboardColors(noteMap);
-  }
-
-  function propagateDefaultColors() {
-    const newNoteMap = { ...noteMap };
-
-    Object.keys(newNoteMap).forEach((noteStr) => {
-      const note = parseInt(noteStr);
-      const isBlack = isBlackNote(note);
-
-      newNoteMap[note] = {
-        ...newNoteMap[note],
-        restColor: isBlack ? colorSettings.blackRest : colorSettings.whiteRest,
-        pressedColor: isBlack
-          ? colorSettings.blackPressed
-          : colorSettings.whitePressed,
-      };
-    });
-
-    setNoteMap(newNoteMap);
   }
 
   function createMIDIDevice(
@@ -457,7 +402,7 @@
         </select>
       </div>
       <div class="device-controls">
-        <button on:click={() => updateDeviceList(midiAccess!)}
+        <button on:click={() => updateDeviceList(midiAccess!)} class="action"
           >Refresh Devices</button
         >
       </div>
@@ -478,7 +423,10 @@
 
   <div class="section">
     <h3>Isomorphic Keyboard Layout</h3>
-    <IsomorphicKeyboardGenerator onUpdateMapping={setNoteMap} {colorSettings} />
+    <IsomorphicKeyboardGenerator
+       onUpdateMapping={setNoteMap} 
+       getNoteColor={(note) => colorFromSettings(colorSettings, note)}
+       />
   </div>
 
   <div class="section">
@@ -499,45 +447,44 @@
   </div>
 
   <div class="section">
-    <div class="color-settings-container">
-      <h3>Default Colors</h3>
-      <DefaultColorsSettings
-        {colorSettings}
-        onColorSettingsChange={(settings) => (colorSettings = settings)}
-        onPropagateColors={propagateDefaultColors}
-      />
-    </div>
+    <h3>Default Colors</h3>
+    <DefaultColorsSettings
+      {colorSettings}
+      onColorSettingsChange={(settings) => {
+        (colorSettings = settings)
+        setNoteMap(applyColorsToMap(settings, noteMap));
+      }}
+    />
   </div>
 
   <div class="section">
     <div class="mapping-container">
       <h3>Settings</h3>
-      <div class="color-controls">
-        <label>
-          <input type="checkbox" bind:checked={showSameNotePressed} />
-          Show same note pressed
-        </label>
+      <div class="settings-controls">
+        <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;">
+          <label>
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'no'} on:change={() => showSameNotePressed = 'no'} />
+            Light up only the physical button
+          </label>
+          <label>
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'yes'} on:change={() => showSameNotePressed = 'yes'} />
+            Light up any occurrence of the note
+          </label>
+          <label>
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'octave'} on:change={() => showSameNotePressed = 'octave'} />
+            Light up any occurrence of the note in any octave
+          </label>
+        </div>
       </div>
-      <div class="color-controls">
-        <button on:click={synchronizeKeyboardColors}>Sync Keyboard</button>
-      </div>
+      <button on:click={synchronizeKeyboardColors} class="action" style="margin-left: 24px;">Sync Keyboard</button>
     </div>
   </div>
 
   <div class="section">
-    <div class="mapping-container">
-      <MIDINoteMap {noteMap} onUpdateMapping={setNoteMap} />
-      <div class="color-controls">
-        <button on:click={() => setNoteMap(DEFAULT_MAPPINGS)}
-          >Reset Keyboard Layout</button
-        >
-      </div>
-    </div>
-  </div>
-
-  <div class="section">
-    <h3>Direct Keyboard Layout</h3>
-    <DirectKeyboardGenerator onUpdateMapping={setNoteMap} {colorSettings} />
+    <MIDINoteMap {noteMap} onUpdateMap={setNoteMap} />
+    <button style="margin-top: 10px;" on:click={() => setNoteMap(DEFAULT_MAPPINGS)} class="action"
+      >Reset Keyboard Layout</button
+    >
   </div>
 </div>
 
@@ -664,4 +611,19 @@
       padding: 0 10px;
     }
   }
+
+  .mapping-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .settings-controls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 32px;
+  }
+
 </style>

@@ -6,7 +6,7 @@
   --border-color: #444;
   --keyboard-bg: #333;
   --white-key-bg: #f0f0f0;
-  --black-key-bg: #111;
+  --black-key-bg: #2d2d2d;
   --white-key-text: #333;
   --black-key-text: #fff;
   --active-white-key: #d0d0d0;
@@ -16,17 +16,14 @@
   --button-hover: #357abd;
   --error-color: #e74c3c;
   --success-color: #2ecc71;
+  --shadow-color: rgba(0,0,0,.5);
   --transition-speed: 0.3s;
   --section-bg: #2d2d2d;
   --input-bg: #333;
   --select-bg: #333;
-  --log-bg: #2d2d2d;
-  --log-row-bg: #333;
-  --log-row-alt-bg: #1a3a4a;
-  --log-row-sent-bg: #1a3a1a;
-  --log-row-error-bg: #3a1a1a;
   --launchpad-layout-tooltip: #aaa;
   --sound-generator-bg: #333;
+  --grid-bg: #1a1a1a;
   --midi-note-map-bg: #333;
   --table-row-bg: #333;
   --color-settings-bg: #2d2d2d;
@@ -46,7 +43,7 @@
   --border-color: #ddd;
   --keyboard-bg: #f0f0f0;
   --white-key-bg: #fff;
-  --black-key-bg: #333;
+  --black-key-bg: #ebebeb;
   --white-key-text: #333;
   --black-key-text: #fff;
   --active-white-key: #e0e0e0;
@@ -57,14 +54,11 @@
   --section-bg: #f9f9f9;
   --input-bg: #fff;
   --select-bg: #fff;
-  --log-bg: #fff;
-  --log-row-bg: #f5f5f5;
-  --log-row-alt-bg: #e6f7ff;
-  --log-row-sent-bg: #effff0;
-  --log-row-error-bg: #fff1f0;
   --launchpad-layout-tooltip: #666;
   --sound-generator-bg: #f5f5f5;
-  --midi-note-map-bg: #f5f5f5;
+  --grid-bg: #1a1a1a;
+  --midi-note-map-bg: #f5f5f5;  
+  --shadow-color: rgba(223, 223, 223, 0.5);
   --table-row-bg: #f5f5f5;
   --color-settings-bg: #fff;
   --json-editor-bg: #fff;
@@ -102,7 +96,15 @@ body {
   justify-content: center;
 }
 
-button {
+.panel {
+  padding: 15px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+button.action {
   background-color: var(--button-bg);
   color: var(--button-text);
   border: none;
@@ -123,14 +125,23 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.control-group label {
+label {
   display: block;
   margin-bottom: 8px;
-  font-weight: bold;
   color: var(--text-color);
 }
 
-.control-group select {
+input {
+  background: var(--input-bg);
+  height: 18px;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 12px;
+}
+
+select {
   width: 100%;
   padding: 10px;
   border: 1px solid var(--border-color);
@@ -140,7 +151,12 @@ button:disabled {
   font-size: 14px;
 }
 
-.control-group input[type="range"] {
-  width: 100%;
-  margin-bottom: 5px;
+input[type="radio"] {
+  cursor: pointer;
+}
+
+
+/* TODO: fix this */
+label > input[type="radio"]  {
+  cursor: pointer;
 }

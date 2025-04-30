@@ -1,79 +1,49 @@
 <script lang="ts">
   import { writable } from 'svelte/store';
-  import type { Note, LaunchpadColor, NoteMap } from '../types/notes';
-  import { isBlackNote, DEFAULT_BASE_NOTE, GRID_LAYOUT } from '../types/notes';
+  import type { Note, LaunchpadColor, NoteMap, NoteColor } from '../types/notes';
+  import { isBlackNote, GRID_LAYOUT } from '../types/notes';
   import NoteInput from './NoteInput.svelte';
 
   export let onUpdateMapping: (newNoteMap: NoteMap) => void;
-  export let colorSettings: {
-    whiteRest: LaunchpadColor;
-    whitePressed: LaunchpadColor;
-    blackRest: LaunchpadColor;
-    blackPressed: LaunchpadColor;
-  };
+  export let getNoteColor: (note: Note) => NoteColor;
 
-  let startNote = writable<Note>(DEFAULT_BASE_NOTE);
-  let horizontalStep = writable<number>(4);
-  let verticalStep = writable<number>(3);
+  let startNote = writable<Note>(39); // D#2
+  let horizontalStep = writable<number>(2); // Wicky-Hayden
+  let verticalStep = writable<number>(5);
 
-  function generateIsomorphicLayout(currentStartNote: Note) {
+  function generateIsomorphicLayout() {
     const noteMap: NoteMap = {};
     
-    // Iterate through the gridLayout structure
     GRID_LAYOUT.forEach((row, rowIndex) => {
       row.forEach((source, colIndex) => {
-        // Calculate the new note number based on position and steps
-        const target = (currentStartNote + 
+        const target = ($startNote + 
           (colIndex * $horizontalStep) + // Horizontal movement
           (rowIndex * $verticalStep)     // Vertical movement
         ) as Note;
-                
-        // Convert to Note object for determining black/white key
-        const isBlackKeyNote = isBlackNote(target);
-        
-        // Create the note mapping with colors from settings
         noteMap[source] = {
           target: target,
-          restColor: isBlackKeyNote ? colorSettings.blackRest : colorSettings.whiteRest,
-          pressedColor: isBlackKeyNote ? colorSettings.blackPressed : colorSettings.whitePressed
+          color: getNoteColor(target)
         };
       });
     });
-    
-    // Update the parent component with the new mapping
+
     onUpdateMapping(noteMap);
   }
 </script>
 
-<div class="isomorphic-keyboard-generator">
-  <div class="controls-grid">
-    <div class="control-group">
+<div class="panel">
+  <div style="display: flex; align-items: center; gap: 20px; justify-content: space-around;">
+    <div class="panel-element">
       <label for="start-note">Start Note:</label>
-      <div class="note-input-container">
-        <NoteInput id="start-note" data={$startNote} onChange={(value: Note) => startNote.set(value)} />
-        <div class="note-stepper">
-          <button 
-            on:click={() => {
-              if ($startNote < 127) {
-                startNote.set(($startNote + 1) as Note);
-                generateIsomorphicLayout($startNote + 1);
-              }
-            }}
-            disabled={$startNote >= 127}
-          >▲</button>
-          <button 
-            on:click={() => {
-              if ($startNote > 0) {
-                startNote.set(($startNote - 1) as Note);
-                generateIsomorphicLayout($startNote - 1);
-              }
-            }}
-            disabled={$startNote <= 0}
-          >▼</button>
-        </div>
-      </div>
+      <NoteInput 
+        id="start-note" 
+        data={$startNote} 
+        onChange={(v: Note) => {
+          $startNote = v
+          generateIsomorphicLayout()
+        }} />
     </div>
-    <div class="control-group">
+    <div class="panel-element">
       <label for="horizontal-step">Horizontal Step:</label>
       <input
         id="horizontal-step"
@@ -81,9 +51,10 @@
         bind:value={$horizontalStep}
         min={-12}
         max={12}
+        on:change={generateIsomorphicLayout}
       />
     </div>
-    <div class="control-group">
+    <div class="panel-element">
       <label for="vertical-step">Vertical Step:</label>
       <input
         id="vertical-step"
@@ -91,96 +62,23 @@
         bind:value={$verticalStep}
         min={-12}
         max={12}
+        on:change={generateIsomorphicLayout}
       />
     </div>
+    <div class="panel-element">
+    <button on:click={generateIsomorphicLayout} class="action">
+      Generate Layout
+      </button>
+    </div>
   </div>
-  <button
-    on:click={() => generateIsomorphicLayout($startNote)}
-    class="generate-button"
-  >
-    Generate Layout
-  </button>
 </div>
 
 <style>
-  .isomorphic-keyboard-generator {
-    padding: 15px;
-    background: var(--section-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 2px 4px var(--shadow-color);
-  }
 
-  .isomorphic-keyboard-generator .controls-grid {
+  .panel-element {
     display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 15px;
-    justify-content: space-around;
-  }
-
-  .isomorphic-keyboard-generator .control-group {
-    display: flex;
-    align-items: center;
+    vertical-align: middle;
     gap: 8px;
-  }
-
-  .note-input-container {
-    display: flex;
-    align-items: center;
-  }
-
-  .note-stepper {
-    display: flex;
-    flex-direction: column;
-    margin-left: 2px;
-  }
-
-  .note-stepper button {
-    padding: 0;
-    width: 16px;
-    height: 14px;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--button-bg);
-    border: none;
-    cursor: pointer;
-    color: white;
-  }
-
-  .note-stepper button:first-child {
-    border-radius: 2px 2px 0 0;
-  }
-
-  .note-stepper button:last-child {
-    border-radius: 0 0 2px 2px;
-  }
-
-  .note-stepper button:hover {
-    background: var(--button-hover);
-  }
-
-  button {
-    background-color: var(--button-bg);
-    color: var(--button-text);
-    border: none;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 16px;
-    transition: background-color var(--transition-speed);
-  }
-
-  button:hover {
-    background-color: var(--button-hover);
-  }
-
-  button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
   }
 
 </style> 

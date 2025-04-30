@@ -75,7 +75,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
-    margin-bottom: 15px;
   }
 
   .sound-control-group {

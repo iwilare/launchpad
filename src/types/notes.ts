@@ -14,14 +14,24 @@ export enum NoteName {
   B = 'B'
 }
 
-export const DEFAULT_BASE_NOTE = 42;
-
 export const LOWEST_CONTROLLER_NOTE = 36;
 
 export const NoteNameList = Object.values(NoteName);
 
-// MIDI note type (36-99 for our keyboard range)
+// The MIDI standard note number
 export type Note = number;
+
+// make sure the note is not out of range
+export function increaseNote(note: Note): Note | null {
+  return note < 127 ? note + 1 : null;
+}
+
+export function decreaseNote(note: Note): Note | null {
+  return note > 0 ? note - 1 : null;
+}
+
+export function canBeIncreased(note: Note): boolean { return note < 127; }
+export function canBeDecreased(note: Note): boolean { return note > 0; }
 
 // Note representation with name and octave
 export interface NoteRepr {
@@ -35,8 +45,12 @@ export type LaunchpadColor = number;
 // Interface for a MIDI note mapping
 export interface NoteMapping {
   target: Note;
-  restColor: LaunchpadColor;
-  pressedColor: LaunchpadColor;
+  color: NoteColor;
+}
+
+export interface NoteColor {
+  rest: LaunchpadColor;
+  pressed: LaunchpadColor;
 }
 
 // Map of MIDI notes to their mappings
@@ -180,68 +194,452 @@ export const GRID_LAYOUT: Note[][] = [
 
 // Default note mappings for the entire range (36-99)
 export const DEFAULT_MAPPINGS: NoteMap = {
-  36: { target: 36, restColor: 0x4E, pressedColor: 0x15 },
-  37: { target: 37, restColor: 0x5F, pressedColor: 0x15 },
-  38: { target: 38, restColor: 0x4E, pressedColor: 0x15 },
-  39: { target: 39, restColor: 0x5F, pressedColor: 0x15 },
-  40: { target: 40, restColor: 0x4E, pressedColor: 0x15 },
-  41: { target: 41, restColor: 0x4E, pressedColor: 0x15 },
-  42: { target: 42, restColor: 0x5F, pressedColor: 0x15 },
-  43: { target: 43, restColor: 0x4E, pressedColor: 0x15 },
-  44: { target: 44, restColor: 0x5F, pressedColor: 0x15 },
-  45: { target: 45, restColor: 0x4E, pressedColor: 0x15 },
-  46: { target: 46, restColor: 0x5F, pressedColor: 0x15 },
-  47: { target: 47, restColor: 0x4E, pressedColor: 0x15 },
-  48: { target: 48, restColor: 0x4E, pressedColor: 0x15 },
-  49: { target: 49, restColor: 0x5F, pressedColor: 0x15 },
-  50: { target: 50, restColor: 0x4E, pressedColor: 0x15 },
-  51: { target: 51, restColor: 0x5F, pressedColor: 0x15 },
-  52: { target: 52, restColor: 0x4E, pressedColor: 0x15 },
-  53: { target: 53, restColor: 0x4E, pressedColor: 0x15 },
-  54: { target: 54, restColor: 0x5F, pressedColor: 0x15 },
-  55: { target: 55, restColor: 0x4E, pressedColor: 0x15 },
-  56: { target: 56, restColor: 0x5F, pressedColor: 0x15 },
-  57: { target: 57, restColor: 0x4E, pressedColor: 0x15 },
-  58: { target: 58, restColor: 0x5F, pressedColor: 0x15 },
-  59: { target: 59, restColor: 0x4E, pressedColor: 0x15 },
-  60: { target: 60, restColor: 0x4E, pressedColor: 0x15 },
-  61: { target: 61, restColor: 0x5F, pressedColor: 0x15 },
-  62: { target: 62, restColor: 0x4E, pressedColor: 0x15 },
-  63: { target: 63, restColor: 0x5F, pressedColor: 0x15 },
-  64: { target: 64, restColor: 0x4E, pressedColor: 0x15 },
-  65: { target: 65, restColor: 0x4E, pressedColor: 0x15 },
-  66: { target: 66, restColor: 0x5F, pressedColor: 0x15 },
-  67: { target: 67, restColor: 0x4E, pressedColor: 0x15 },
-  68: { target: 68, restColor: 0x5F, pressedColor: 0x15 },
-  69: { target: 69, restColor: 0x4E, pressedColor: 0x15 },
-  70: { target: 70, restColor: 0x5F, pressedColor: 0x15 },
-  71: { target: 71, restColor: 0x4E, pressedColor: 0x15 },
-  72: { target: 72, restColor: 0x4E, pressedColor: 0x15 },
-  73: { target: 73, restColor: 0x5F, pressedColor: 0x15 },
-  74: { target: 74, restColor: 0x4E, pressedColor: 0x15 },
-  75: { target: 75, restColor: 0x5F, pressedColor: 0x15 },
-  76: { target: 76, restColor: 0x4E, pressedColor: 0x15 },
-  77: { target: 77, restColor: 0x4E, pressedColor: 0x15 },
-  78: { target: 78, restColor: 0x5F, pressedColor: 0x15 },
-  79: { target: 79, restColor: 0x4E, pressedColor: 0x15 },
-  80: { target: 80, restColor: 0x5F, pressedColor: 0x15 },
-  81: { target: 81, restColor: 0x4E, pressedColor: 0x15 },
-  82: { target: 82, restColor: 0x5F, pressedColor: 0x15 },
-  83: { target: 83, restColor: 0x4E, pressedColor: 0x15 },
-  84: { target: 84, restColor: 0x4E, pressedColor: 0x15 },
-  85: { target: 85, restColor: 0x5F, pressedColor: 0x15 },
-  86: { target: 86, restColor: 0x4E, pressedColor: 0x15 },
-  87: { target: 87, restColor: 0x5F, pressedColor: 0x15 },
-  88: { target: 88, restColor: 0x4E, pressedColor: 0x15 },
-  89: { target: 89, restColor: 0x4E, pressedColor: 0x15 },
-  90: { target: 90, restColor: 0x5F, pressedColor: 0x15 },
-  91: { target: 91, restColor: 0x4E, pressedColor: 0x15 },
-  92: { target: 92, restColor: 0x5F, pressedColor: 0x15 },
-  93: { target: 93, restColor: 0x4E, pressedColor: 0x15 },
-  94: { target: 94, restColor: 0x5F, pressedColor: 0x15 },
-  95: { target: 95, restColor: 0x4E, pressedColor: 0x15 },
-  96: { target: 96, restColor: 0x4E, pressedColor: 0x15 },
-  97: { target: 97, restColor: 0x5F, pressedColor: 0x15 },
-  98: { target: 98, restColor: 0x4E, pressedColor: 0x15 },
-  99: { target: 99, restColor: 0x5F, pressedColor: 0x15 }
-}; 
+  "36": {
+    "target": 39,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "37": {
+    "target": 41,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "38": {
+    "target": 43,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "39": {
+    "target": 45,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "40": {
+    "target": 44,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "41": {
+    "target": 46,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "42": {
+    "target": 48,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "43": {
+    "target": 50,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "44": {
+    "target": 49,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "45": {
+    "target": 51,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "46": {
+    "target": 53,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "47": {
+    "target": 55,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "48": {
+    "target": 54,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "49": {
+    "target": 56,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "50": {
+    "target": 58,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "51": {
+    "target": 60,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "52": {
+    "target": 59,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "53": {
+    "target": 61,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "54": {
+    "target": 63,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "55": {
+    "target": 65,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "56": {
+    "target": 64,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "57": {
+    "target": 66,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "58": {
+    "target": 68,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "59": {
+    "target": 70,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "60": {
+    "target": 69,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "61": {
+    "target": 71,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "62": {
+    "target": 73,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "63": {
+    "target": 75,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "64": {
+    "target": 74,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "65": {
+    "target": 76,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "66": {
+    "target": 78,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "67": {
+    "target": 80,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "68": {
+    "target": 47,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "69": {
+    "target": 49,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "70": {
+    "target": 51,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "71": {
+    "target": 53,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "72": {
+    "target": 52,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "73": {
+    "target": 54,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "74": {
+    "target": 56,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "75": {
+    "target": 58,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "76": {
+    "target": 57,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "77": {
+    "target": 59,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "78": {
+    "target": 61,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "79": {
+    "target": 63,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "80": {
+    "target": 62,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "81": {
+    "target": 64,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "82": {
+    "target": 66,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "83": {
+    "target": 68,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "84": {
+    "target": 67,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "85": {
+    "target": 69,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "86": {
+    "target": 71,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "87": {
+    "target": 73,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "88": {
+    "target": 72,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "89": {
+    "target": 74,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "90": {
+    "target": 76,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "91": {
+    "target": 78,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "92": {
+    "target": 77,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "93": {
+    "target": 79,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "94": {
+    "target": 81,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "95": {
+    "target": 83,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "96": {
+    "target": 82,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "97": {
+    "target": 84,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "98": {
+    "target": 86,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  },
+  "99": {
+    "target": 88,
+    "color": {
+      "rest": 78,
+      "pressed": 21
+    }
+  }
+}

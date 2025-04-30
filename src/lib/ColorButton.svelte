@@ -45,14 +45,16 @@
   }
 
   .color-preview {
-    padding: 8px 12px;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
-    font-weight: bold;
-    text-align: center;
-    min-width: 100px;
-    user-select: none;
-    transition: background-color var(--transition-speed), color var(--transition-speed);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-color);
+    font-size: 12px;
   }
+
 </style> 

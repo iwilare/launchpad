@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { launchpadColorToHexString, getTextColor } from '../types/colors';
-  import FloatingColorPicker from './FloatingColorPicker.svelte';
+  import { launchpadColorToHexString, getTextColor as getColorHex } from '../types/colors';
   import { type Note, type LaunchpadColor, type NoteMap, GRID_LAYOUT } from '../types/notes';
   import { shouldLightUp, type NoteState, type KeyState, type ShowSameNote } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
@@ -12,10 +11,6 @@
   export let noteMap: NoteMap;
   export let setNoteMap: (noteMap: NoteMap) => void;
   export let showSameNotePressed: ShowSameNote;
-
-  const isActiveNote = (noteState: NoteState, note: number) => {
-    return noteState[note] && noteState[note] > 0;
-  };
 
   let colorPickerCell: Note | null = null;
 
@@ -67,7 +62,7 @@
                   onChange={(newNote) => handleNoteChange(src, newNote)}
                   asButton={true}
                   className="note-name"
-                  style="color: {getTextColor(getKeyColor(src))}"
+                  style="color: {getColorHex(getKeyColor(src))}"
                 />
               </div>
             </div>

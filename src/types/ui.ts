@@ -1,6 +1,7 @@
 import { isBlackNote, noteToNoteRepr, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
 
 export interface SoundSettings {
+    enabled: boolean;
     volume: number;
     waveform: OscillatorType;
 }
@@ -27,7 +28,7 @@ export interface ColorSettings {
 export type ShowSameNote = "no" | "yes" | "octave";
 
 export interface NoteState {
-    [key: number]: number; // number of times the note is being pressed
+    [key: Note]: number; // number of times the note is being pressed
 }
 
 export const addNote = (noteState: NoteState, note: number) => {
@@ -77,7 +78,7 @@ export function applyColorsToMap(settings: ColorSettings, noteMap: NoteMap): Not
 }
 
 export function shouldLightUp(note: Note, activeNotes: NoteState, showSameNote: ShowSameNote) {
-    return activeNotes[note]
+    return activeNotes[note] > 0
         || (Object.entries(activeNotes)
             .filter(([_, number]) => number > 0)
             .some(([note2Str, _]) => {

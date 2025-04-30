@@ -1,42 +1,29 @@
 <script lang="ts">
-  interface SoundSettings {
-    volume: number;
-    waveform: OscillatorType;
-  }
+    import type { SoundSettings } from "../types/ui";
 
   export let settings: SoundSettings;
   export let onSettingsChange: (settings: SoundSettings) => void;
-
-  function handleChange(e: Event) {
-    const target = e.target as HTMLInputElement | HTMLSelectElement;
-    const { name, value } = target;
-
-    // Handle numeric values
-    if (name !== 'waveform') {
-      const numValue = parseFloat(value);
-      onSettingsChange({
-        ...settings,
-        [name]: numValue
-      });
-    } else {
-      // Handle waveform selection
-      onSettingsChange({
-        ...settings,
-        waveform: value as OscillatorType
-      });
-    }
-  }
 </script>
 
 <div class="sound-generator">
   <div class="control-row">
+    <div class="sound-control-group">
+      <label for="enabled">Enabled</label>
+      <input
+        type="checkbox"
+        id="sound-enabled"
+        name="sound-enabled"
+        checked={settings.enabled}
+        on:change={(e) => { onSettingsChange({ ...settings, enabled: (e.target as HTMLInputElement).checked }); }}
+      />
+    </div>
     <div class="sound-control-group">
       <label for="waveform">Waveform</label>
       <select
         id="waveform"
         name="waveform"
         value={settings.waveform}
-        on:change={handleChange}
+        on:change={(e) => { onSettingsChange({ ...settings, waveform: (e.target as HTMLSelectElement).value as OscillatorType }); }}
       >
         <option value="sine">Sine</option>
         <option value="square">Square</option>
@@ -44,7 +31,6 @@
         <option value="triangle">Triangle</option>
       </select>
     </div>
-
     <div class="sound-control-group">
       <label for="volume">Volume</label>
       <input
@@ -55,7 +41,7 @@
         max="1"
         step="0.01"
         value={settings.volume}
-        on:input={handleChange}
+        on:input={(e) => { onSettingsChange({ ...settings, volume: parseFloat((e.target as HTMLInputElement).value) }); }}
       />
       <span class="value-display">{Math.round(settings.volume * 100)}%</span>
     </div>
@@ -79,6 +65,8 @@
 
   .sound-control-group {
     flex: 1;
+    align-items: center;
+    justify-content: center;
     min-width: 200px;
   }
 

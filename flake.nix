@@ -1,4 +1,3 @@
-# flake.nix
 {
   description = "MIDI Controller Web Application";
 
@@ -15,7 +14,7 @@
       {
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            nodejs_20
+            bun
             watchexec
           ];
         };

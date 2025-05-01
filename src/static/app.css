@@ -1,0 +1,162 @@
+/* src/App.css */
+:root {
+  --bg-color: #1a1a1a;
+  --text-color: #f0f0f0;
+  --card-bg: #2d2d2d;
+  --border-color: #444;
+  --keyboard-bg: #333;
+  --white-key-bg: #f0f0f0;
+  --black-key-bg: #2d2d2d;
+  --white-key-text: #333;
+  --black-key-text: #fff;
+  --active-white-key: #d0d0d0;
+  --active-black-key: #222;
+  --button-bg: #4a90e2;
+  --button-text: #fff;
+  --button-hover: #357abd;
+  --error-color: #e74c3c;
+  --success-color: #2ecc71;
+  --shadow-color: rgba(0,0,0,.5);
+  --transition-speed: 0.3s;
+  --section-bg: #2d2d2d;
+  --input-bg: #333;
+  --select-bg: #333;
+  --launchpad-layout-tooltip: #aaa;
+  --sound-generator-bg: #333;
+  --grid-bg: #1a1a1a;
+  --midi-note-map-bg: #333;
+  --table-row-bg: #333;
+  --color-settings-bg: #2d2d2d;
+  --json-editor-bg: #2d2d2d;
+  --json-editor-textarea-bg: #333;
+  --json-error-bg: #3a1a1a;
+  --key-border-color: #666;
+  --color-picker-bg: #2d2d2d;
+  --color-picker-border: #444;
+  --color-picker-shadow: rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="light"] {
+  --bg-color: #f5f5f5;
+  --text-color: #333;
+  --card-bg: #fff;
+  --border-color: #ddd;
+  --keyboard-bg: #f0f0f0;
+  --white-key-bg: #fff;
+  --black-key-bg: #ebebeb;
+  --white-key-text: #333;
+  --black-key-text: #fff;
+  --active-white-key: #e0e0e0;
+  --active-black-key: #555;
+  --button-bg: #4a90e2;
+  --button-text: #fff;
+  --button-hover: #357abd;
+  --section-bg: #f9f9f9;
+  --input-bg: #fff;
+  --select-bg: #fff;
+  --launchpad-layout-tooltip: #666;
+  --sound-generator-bg: #f5f5f5;
+  --grid-bg: #1a1a1a;
+  --midi-note-map-bg: #f5f5f5;  
+  --shadow-color: rgba(223, 223, 223, 0.5);
+  --table-row-bg: #f5f5f5;
+  --color-settings-bg: #fff;
+  --json-editor-bg: #fff;
+  --json-editor-textarea-bg: #fff;
+  --json-error-bg: #ffebee;
+  --key-border-color: #999;
+  --color-picker-bg: #fff;
+  --color-picker-border: #ddd;
+  --color-picker-shadow: rgba(0, 0, 0, 0.1);
+}
+
+html {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans",
+    "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  transition:
+    background-color var(--transition-speed),
+    color var(--transition-speed);
+  display: flex;
+  justify-content: center;
+}
+
+.panel {
+  padding: 15px;
+  background: var(--section-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px var(--shadow-color);
+}
+
+button.action {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+  border: none;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color var(--transition-speed);
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-color);
+}
+
+input {
+  background: var(--input-bg);
+  height: 18px;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px;
+  font-size: 12px;
+}
+
+select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--select-bg);
+  color: var(--text-color);
+  font-size: 14px;
+}
+
+input[type="radio"] {
+  cursor: pointer;
+}
+
+
+/* TODO: fix this */
+label > input[type="radio"]  {
+  cursor: pointer;
+}

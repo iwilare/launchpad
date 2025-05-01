@@ -216,34 +216,18 @@
     if (showSameNotePressed === "yes") {
       const wouldBeAffectedNotes = activeNotes.get(map.target) ?? 0; 
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
-      activeNotes.forEach((n, k) => {
-        console.log("INSIDE: ", k, "->", n);
-      });
-
-      console.info("Note:" , key, map.target, "AFFECTED: ", wouldBeAffectedNotes, isPressed, needsChange);
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
-          if (map && map.target == otherMap.target) {
-            return controllerChangeColor(otherKey, isPressed);
-          }
+          if (map.target == otherMap.target) { return controllerChangeColor(otherKey, isPressed); }
         });
       }
     } else if (showSameNotePressed === "octave") {
       let wouldBeAffectedNotes = 0;
       activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes += n; } });
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
-      
-      activeNotes.forEach((n, k) => {
-        console.log("INSIDE: ", k, "->", n);
-      });
-
-      console.info("Note:" , key, map.target, "AFFECTED: ", wouldBeAffectedNotes, isPressed, needsChange);
-
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
-          if (map && areSameNote(map.target, otherMap.target)) {
-            return controllerChangeColor(otherKey, isPressed);
-          }
+          if (areSameNote(map.target, otherMap.target)) { return controllerChangeColor(otherKey, isPressed); }
         });
       }
     } else {

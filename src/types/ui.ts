@@ -1,18 +1,9 @@
-import { isBlackNote, noteToNoteRepr, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
+import { areSameNote, isBlackNote, noteToNoteRepr, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
 
 export interface SoundSettings {
     enabled: boolean;
     volume: number;
     waveform: OscillatorType;
-}
-
-export interface MIDIDevice {
-    id: string;
-    name: string;
-    manufacturer: string;
-    state: "connected" | "disconnected";
-    connection: "closed" | "open" | "pending";
-    type: "input" | "output";
 }
 
 export interface ColorSettings {
@@ -27,31 +18,31 @@ export interface ColorSettings {
 
 export type ShowSameNote = "no" | "yes" | "octave";
 
-export interface NoteState {
-    [key: Note]: number; // number of times the note is being pressed
-}
+export type NoteState = Map<Note, number> // number of times the note is being pressed
 
-export const addNote = (noteState: NoteState, note: number) => {
-    return { ...noteState, [note]: (noteState[note] || 0) + 1 };
+export const increaseNoteMut = (noteState: NoteState, note: number) => {
+    noteState.set(note, (noteState.get(note) || 0) + 1);
 };
 
-export const removeNote = (noteState: NoteState, note: number) => {
-    return noteState[note]
-        ? { ...noteState, [note]: Math.max(0, noteState[note] - 1) }
-        : noteState;
+export const decreaseNoteMut = (noteState: NoteState, note: number) => {
+    const v = noteState.get(note);
+    if (v === undefined) 
+        return;
+    else if (v == 1) 
+        noteState.delete(note);
+    else 
+        noteState.set(note, v - 1);
 };
 
 export const isActiveNote = (noteState: NoteState, note: number) => {
-    return noteState[note] && noteState[note] > 0;
+    const v = noteState.get(note);
+    return v !== undefined && v > 0;
 };
 
 export const isLastNote = (noteState: NoteState, note: number) => {
-    return noteState[note] && noteState[note] == 1;
+    const v = noteState.get(note);
+    return v !== undefined && v == 1;
 };
-
-export interface KeyState {
-    [key: Note]: boolean;
-}
 
 export function colorFromSettings(settings: ColorSettings, note: Note): NoteColor {
     return settings.isUniform ? {
@@ -67,24 +58,9 @@ export function colorFromSettings(settings: ColorSettings, note: Note): NoteColo
 }
 
 export function applyColorsToMap(settings: ColorSettings, noteMap: NoteMap): NoteMap {
-    const newNoteMap: NoteMap = {};
-    for (const [noteStr, mapping] of Object.entries(noteMap)) {
-        const target = mapping.target;
-        const note = parseInt(noteStr);
-        const color = colorFromSettings(settings, target);
-        newNoteMap[note] = { ...mapping, color: color };
-    }
+    const newNoteMap: NoteMap = new Map();
+    noteMap.forEach((mapping, note) => {
+        newNoteMap.set(note, { ...mapping, color: colorFromSettings(settings, mapping.target) });
+    });
     return newNoteMap;
-}
-
-export function shouldLightUp(note: Note, activeNotes: NoteState, showSameNote: ShowSameNote) {
-    return activeNotes[note] > 0
-        || (Object.entries(activeNotes)
-            .filter(([_, number]) => number > 0)
-            .some(([note2Str, _]) => {
-                const note2 = parseInt(note2Str);
-                return showSameNote === 'yes' ? note == note2 :
-                    showSameNote === 'octave' ?
-                        noteToNoteRepr(note).name === noteToNoteRepr(note2).name : false;
-            }));
 }

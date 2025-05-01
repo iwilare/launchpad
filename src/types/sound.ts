@@ -1,64 +1,47 @@
 import type { Note } from "./notes";
-import type { NoteState, SoundSettings } from "./ui";
+import type { SoundSettings } from "./ui";
 
 export type SoundState = {
   audioContext: AudioContext | null;
-  oscillators: { [key: Note]: OscillatorNode };
-  gainNodes: { [key: Note]: GainNode };
-  activeNotes: NoteState; // number of times the note is supposed to be playing
+  activeNotes: Map<Note, {
+    oscillator: OscillatorNode, 
+    gainNode: GainNode, 
+    number: number; // number of times the note is supposed to be playing
+  }>
 }
 
 export function emptySoundState(): SoundState {
-  return {
-        audioContext: null,
-        oscillators: {},
-        gainNodes: {},
-        activeNotes: {},
-    }
+  return { audioContext: null, activeNotes: new Map() }
 }
 
 export function initializeSoundState(): SoundState {
-    return { 
-        ...emptySoundState(), 
-        audioContext: new (window.AudioContext || (window as any).webkitAudioContext)() 
-    }
+    return { ...emptySoundState(), audioContext: new window.AudioContext() }
 }
 
-export function stopAudioNote(ss: SoundState, note: number) { 
-    if (ss.activeNotes[note]) {
-        if (ss.activeNotes[note] > 0) {
-            ss.activeNotes[note]--;
+export function releaseAudioNote(ss: SoundState, note: number) { 
+    const n = ss.activeNotes.get(note);
+    if (n) {
+        if (n.number > 1) {
+            ss.activeNotes.set(note, { ...n, number: n.number - 1 });
         } else {
-            if (ss.oscillators[note]) {
-                ss.oscillators[note].stop();
-                delete ss.oscillators[note];
-            }
-            if (ss.gainNodes[note]) {
-                delete ss.gainNodes[note];
-            }
-            delete ss.activeNotes[note];
+            n.oscillator.stop();
+            ss.activeNotes.delete(note);
         }
     }
 }
 
-export function stopEverything(ss: SoundState) {
-    Object.keys(ss.oscillators).forEach((note) => {
-      stopAudioNote(ss, parseInt(note));
+export function stopEverythingAudio(ss: SoundState) {
+    ss.activeNotes.forEach((n) => {
+        n.oscillator.stop();
     });
-    Object.keys(ss.gainNodes).forEach((note) => {
-      stopAudioNote(ss, parseInt(note));
-    });
-    ss.activeNotes = {};
+    ss.activeNotes.clear();
 }
 
-export function playAudioNoteWithSynth(ss: SoundState, sc: SoundSettings, note: number, velocity: number = 1.0): null | string {
-    if (ss.activeNotes) {
-        ss.activeNotes[note]++;
-        return null;
-    } else {
+export function pressAudioNote(ss: SoundState, sc: SoundSettings, note: number, velocity: number = 1.0): null | string {
+    const n = ss.activeNotes.get(note);
+    if (!n) {
         if (!sc.enabled) return null;
         if (!ss.audioContext) return 'No audio context';
-        stopAudioNote(ss, note);
 
         const oscillator = ss.audioContext.createOscillator();
         const gainNode = ss.audioContext.createGain();
@@ -74,8 +57,9 @@ export function playAudioNoteWithSynth(ss: SoundState, sc: SoundSettings, note: 
 
         oscillator.start();
 
-        ss.oscillators[note] = oscillator;
-        ss.gainNodes[note] = gainNode;
-        return null;
+        ss.activeNotes.set(note, { oscillator, gainNode, number: 1 });
+    } else {
+        ss.activeNotes.set(note, { ...n, number: n.number + 1 });
     }
+    return null;
 }

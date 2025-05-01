@@ -1,34 +1,24 @@
 <script lang="ts">
-  import { launchpadColorToHexString, getTextColor as getColorHex } from '../types/colors';
-  import { type Note, type LaunchpadColor, type NoteMap, GRID_LAYOUT } from '../types/notes';
-  import { shouldLightUp, type NoteState, type KeyState, type ShowSameNote } from '../types/ui';
+  import { launchpadColorToHex, launchpadColorToTextColorHex as getColorHex, launchpadColorToTextColorHex } from '../types/colors';
+  import { type Note, type NoteMap, GRID_LAYOUT, DEFAULT_COLOR as DEFAULT_LAUNCHPAD_COLOR, type Controller } from '../types/notes';
   import NoteInput from './NoteInput.svelte';
   
-  export let activeNotes: NoteState = {};
-  export let activeKeys: KeyState = {};
+  export let controller: Controller;
+  export let noteMap: NoteMap;
+
   export let onKeyPress: (note: number) => void;
   export let onKeyRelease: (note: number) => void;
-  export let noteMap: NoteMap;
   export let setNoteMap: (noteMap: NoteMap) => void;
-  export let showSameNotePressed: ShowSameNote;
 
   let colorPickerCell: Note | null = null;
 
   function handleNoteChange(src: Note, newNote: Note) {
-    if (noteMap[src]) {
-      const newNoteMap = {...noteMap};
-      newNoteMap[src] = {
-        ...newNoteMap[src],
-        target: newNote
-      };
+    const mapping = noteMap.get(src);
+    if (mapping) {
+      const newNoteMap = new Map(noteMap);
+      newNoteMap.set(src, { ...mapping, target: newNote });
       setNoteMap(newNoteMap);
     }
-  }
-
-  function getKeyColor(src: Note): LaunchpadColor {
-    return shouldLightUp(noteMap[src].target, activeNotes, showSameNotePressed)
-      ? noteMap[src].color.pressed 
-      : noteMap[src].color.rest;
   }
 </script>
 
@@ -39,17 +29,14 @@
         <div class="grid-row">
           {#each row as src}
             <div
-              class="grid-cell {activeKeys[src] ? 'active' : ''}"
-              style="background-color: {launchpadColorToHexString(getKeyColor(src))}"
+              class="grid-cell {controller.get(src)?.active ?? false ? 'active' : ''}"
+              style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_LAUNCHPAD_COLOR)}"
               role="button"
               tabindex="0"
-              on:mousedown={(e) => {
-                if (!e.defaultPrevented) {
-                  onKeyPress(src);
-                }
-              }}
+              on:mouseenter|preventDefault={(e) => { if (e.buttons === 1) { onKeyPress(src); } }}
+              on:mousedown|preventDefault={(e) => { if (e.buttons === 1) { onKeyPress(src); } }}
               on:mouseup={() => onKeyRelease(src)}
-              on:mouseleave={() => activeKeys[src] && onKeyRelease(src)}
+              on:mouseleave={() => { onKeyRelease(src) }}
               on:contextmenu|preventDefault={(e) => {
                 e.stopPropagation();
                 colorPickerCell = src;
@@ -58,11 +45,11 @@
               <div class="cell-content">
                 <NoteInput
                   id={`note-${src}`}
-                  data={noteMap[src].target}
+                  data={noteMap.get(src)?.target ?? 0}
                   onChange={(newNote) => handleNoteChange(src, newNote)}
                   asButton={true}
                   className="note-name"
-                  style="color: {getColorHex(getKeyColor(src))}"
+                  style="color: {launchpadColorToTextColorHex(controller.get(src)?.color ?? DEFAULT_LAUNCHPAD_COLOR)}"
                 />
               </div>
             </div>
@@ -70,6 +57,24 @@
         </div>
       {/each}
     </div> 
+    <!-- {#if colorPickerCell}
+      <div class="color-picker-cell">
+        <div class="color-picker-cell-content">
+          <div class="color-picker-cell-color">
+            <FloatingColorPicker
+              on:colorChange={(color) => {
+                const mapping = noteMap.get(colorPickerCell);
+                if (mapping) {
+                  const newNoteMap = new Map(noteMap);
+                  newNoteMap.set(colorPickerCell, { ...mapping, color: { ...mapping.color, rest: color } });
+                  setNoteMap(newNoteMap);
+                }
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    {/if} -->
   </div> 
 </div>
 

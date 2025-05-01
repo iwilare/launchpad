@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { launchpadColorToHexString, getTextColor, launchpadColorToString } from '../types/colors';
+  import { launchpadColorToHex, launchpadColorToTextColorHex, launchpadColorToString } from '../types/colors';
   import FloatingColorPicker from './FloatingColorPicker.svelte';
   import type { LaunchpadColor } from '../types/notes';
 
@@ -8,20 +8,13 @@
   export let onChange: (value: LaunchpadColor) => void;
 
   let showPicker = false;
-  let pickerStyle = {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    zIndex: '1000'
-  };
 </script>
 
 <div class="color-button-container">
   <button
     class="color-preview"
     tabindex={index}
-    style="background-color: {launchpadColorToHexString(value)}; color: {getTextColor(value)}"
+    style="background-color: {launchpadColorToHex(value)}; color: {launchpadColorToTextColorHex(value)}"
     on:click={() => showPicker = true}
   >
     {launchpadColorToString(value)}
@@ -29,12 +22,8 @@
   {#if showPicker}
     <FloatingColorPicker
       {value}
-      onChange={(e) => {
-        onChange(e);
-        showPicker = false;
-      }}
+      onChange={(e) => { onChange(e); showPicker = false; }}
       onClose={() => showPicker = false}
-      style={pickerStyle}
     />
   {/if}
 </div>

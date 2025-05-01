@@ -1,15 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import {
-    LaunchpadColors,
-    launchpadColorToHexString,
-    getTextColor,
-  } from "../types/colors";
+  import { LaunchpadColors, launchpadColorToTextColorHex } from "../types/colors";
   import type { LaunchpadColor } from "../types/notes";
 
   export let value: LaunchpadColor;
-  export let position: "center" | "relative" = "relative";
-  export let style: Record<string, string> = {};
   export let onChange: (color: LaunchpadColor) => void;
   export let onClose: () => void;
 
@@ -28,45 +22,35 @@
   });
 </script>
 
-<div
-  bind:this={pickerRef}
-  class="floating-color-picker"
-  style="
-    position: {position === 'center' ? 'fixed' : 'absolute'};
-    {position === 'center'
-    ? 'top: 50%; left: 50%; transform: translate(-50%, -50%);'
-    : ''}
-    {Object.entries(style)
-    .map(([key, value]) => `${key}: ${value};`)
-    .join('')}
-  "
->
-  <input
-    type="text"
-    placeholder="Search colors..."
-    bind:value={searchTerm}
-    class="color-search"
-  />
-  <div class="color-grid">
-    {#each Object.entries(LaunchpadColors) as [codeAsForcedString, hexColor]}
-      {#if !searchTerm || codeAsForcedString
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())}
-        {@const code = parseInt(codeAsForcedString)}
-        {@const hexCode = Number(code)
-          .toString(16)
-          .padStart(2, "0")
-          .toUpperCase()}
-        <button
-          class="color-option {code === value ? 'selected' : ''}"
-          style="background-color: {hexColor}; color: {getTextColor(code)}"
-          on:click={() => onChange(code)}
-          title="Color {hexCode}"
-        >
-          {hexCode}
-        </button>
-      {/if}
-    {/each}
+<div bind:this={pickerRef} class="floating-color-picker">
+  <div class="inner"> 
+      <input
+      type="text"
+      placeholder="Search colors..."
+      bind:value={searchTerm}
+      class="color-search"
+    />
+    <div class="color-grid">
+      {#each Object.entries(LaunchpadColors) as [codeAsForcedString, hexColor]}
+        {#if !searchTerm || codeAsForcedString
+            .toLowerCase()
+            .includes(searchTerm.toLowerCase())}
+          {@const code = parseInt(codeAsForcedString)}
+          {@const hexCode = Number(code)
+            .toString(16)
+            .padStart(2, "0")
+            .toUpperCase()}
+          <button
+            class="color-option {code === value ? 'selected' : ''}"
+            style="background-color: {hexColor}; color: {launchpadColorToTextColorHex(code)}"
+            on:click={() => onChange(code)}
+            title="Color {hexCode}"
+          >
+            {hexCode}
+          </button>
+        {/if}
+      {/each}
+    </div>
   </div>
 </div>
 
@@ -78,6 +62,10 @@
     padding: 15px;
     box-shadow: 0 4px 12px var(--color-picker-shadow);
     z-index: 9999;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .color-search {

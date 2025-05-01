@@ -12,7 +12,7 @@
   let verticalStep = writable<number>(5);
 
   function generateIsomorphicLayout() {
-    const noteMap: NoteMap = {};
+    const noteMap: NoteMap = new Map();
     
     GRID_LAYOUT.forEach((row, rowIndex) => {
       row.forEach((source, colIndex) => {
@@ -20,10 +20,10 @@
           (colIndex * $horizontalStep) + // Horizontal movement
           (rowIndex * $verticalStep)     // Vertical movement
         ) as Note;
-        noteMap[source] = {
+        noteMap.set(source, {
           target: target,
           color: getNoteColor(target)
-        };
+        });
       });
     });
 

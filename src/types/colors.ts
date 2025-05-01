@@ -133,12 +133,12 @@ export const LaunchpadColors: Record<LaunchpadColor, string> = {
 };
 
 // Get hex color from color code
-export const launchpadColorToHexString = (colorCode: LaunchpadColor): string => {
+export const launchpadColorToHex = (colorCode: LaunchpadColor): string => {
   return LaunchpadColors[colorCode] || '#000000';
 };
 
 // Get text color based on background color
-export const getTextColor = (colorCode: LaunchpadColor): string => {
+export const launchpadColorToTextColorHex = (colorCode: LaunchpadColor): string => {
   const hex = LaunchpadColors[colorCode];
   if (!hex) return '#ffffff';
   

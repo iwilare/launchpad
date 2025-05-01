@@ -1,10 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { NoteMapping, LaunchpadColor, NoteMap, Note } from '../types/notes';
-  import { noteToNoteRepr, isBlackNote } from '../types/notes';
-  import { launchpadColorToHexString } from '../types/colors';
-  import { noteToString, stringToNote, stringToNoteName, noteReprToNote } from '../types/notes';
-  import ColorButton from './ColorButton.svelte';
+  import { noteToNoteRepr, isBlackNote, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat } from '../types/notes';
   import MIDINoteMapRow from './MIDINoteMapRow.svelte';
 
   export let noteMap: NoteMap;
@@ -14,96 +11,28 @@
   let jsonValue = '';
   let jsonError = '';
 
-  function updateJsonValue(mappings: NoteMap) {
-    // First pass to find the longest note name
-    const maxNameLength = Math.max(...Object.values(mappings).map(mapping => {
-      const noteRepr = noteToNoteRepr(mapping.target);
-      return noteRepr.name.length;
-    }));
 
-    const formattedJson = Object.entries(mappings)
-      .map(([sourceNote, mapping]) => {
-        const noteRepr = noteToNoteRepr(mapping.target);
-        const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
-        return `  { "k": ${sourceNote}, "n": "${noteRepr.name}"${namePadding}, "o": ${noteRepr.octave}, "c": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
-      })
-      .join(',\n');
-    jsonValue = '[\n' + formattedJson + '\n]';
-  }
-
-  onMount(() => {
-    if (!showJson) {
-      updateJsonValue(noteMap);
-    }
-  });
-
-  $: if (!showJson) {
-    updateJsonValue(noteMap);
-  }
-
-  function handleJsonChange(value: string) {
-    jsonValue = value;
-    try {
-      const parsedJson = JSON.parse(value);
-      if (!Array.isArray(parsedJson)) {
-        jsonError = 'JSON must be an array of mappings';
-        return;
-      }
-
-      const isValid = parsedJson.every(mapping => 
-        typeof mapping?.k === 'number' && 
-        typeof mapping?.n === 'string' && 
-        typeof mapping?.o === 'number' && 
-        typeof mapping?.r === 'number' && 
-        typeof mapping?.p === 'number'
-      );
-
-      if (!isValid) {
-        jsonError = 'Each mapping must have: k (number), n (string), o (number), c (number), p (number)';
-        return;
-      }
-
-      const newNoteMap: NoteMap = {};
-      for (const mapping of parsedJson) {
-        const noteName = stringToNoteName(mapping.n);
-        if (!noteName) {
-          jsonError = `Invalid note name: ${mapping.n}`;
-          return;
-        }
-        
-        newNoteMap[mapping.k] = {
-          target: noteReprToNote({ name: noteName, octave: mapping.o }),
-          color: {
-            rest: mapping.c,
-            pressed: mapping.p
-          }
-        };
-      }
-      
-      jsonError = '';
-      onUpdateMap(newNoteMap);
-    } catch (e) {
-      if (value.trim()) {
-        jsonError = 'Invalid JSON format';
-      } else {
-        jsonError = '';
-      }
-    }
-  }
-
-  function renderTable(mappings: NoteMap, startIndex: number, howMany: number) {
+  function renderTable(startIndex: number, howMany: number) {
     const entries = [];
     for (let i = startIndex; i < startIndex + howMany; i++) {
       const key = i as Note;
-      if (mappings[key]) {
-        entries.push({
-          key,
-          mapping: mappings[key]
-        });
-      }
+      const mapping = noteMap.get(key);
+      if (mapping) { entries.push({ key, mapping }); }
     }
     return entries;
   }
+
+  function handleJsonChange(value: string) {
+    const result = niceNoteMapToNoteMap(value);
+    if (typeof result === 'string') {
+      jsonError = result;
+    } else {
+      onUpdateMap(result);
+    }
+  }
+  onMount(() => { if (!showJson) { jsonValue = noteMapToNiceNoteMapFormat(noteMap); } });
+
+  $: if (!showJson) { jsonValue = noteMapToNiceNoteMapFormat(noteMap); }
 </script>
 
 <div class="panel">
@@ -134,7 +63,7 @@
             <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
           </thead>
           <tbody>
-            {#each renderTable(noteMap, 36, 21) as { key, mapping }}
+            {#each renderTable(36, 21) as { key, mapping }}
               <MIDINoteMapRow {key} {mapping} onChange={(mapping: NoteMapping) => onUpdateMap({ ...noteMap, [key]: mapping })}/>
             {/each}
           </tbody>
@@ -144,7 +73,7 @@
             <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
           </thead>
           <tbody>
-            {#each renderTable(noteMap, 57, 21) as { key, mapping }}
+            {#each renderTable(57, 21) as { key, mapping }}
               <MIDINoteMapRow {key} {mapping} onChange={(mapping: NoteMapping) => onUpdateMap({ ...noteMap, [key]: mapping })}/>
             {/each}
           </tbody>
@@ -154,7 +83,7 @@
             <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
           </thead>
           <tbody>
-            {#each renderTable(noteMap, 78, 22) as { key, mapping }}
+            {#each renderTable(78, 22) as { key, mapping }}
               <MIDINoteMapRow {key} {mapping} onChange={(mapping: NoteMapping) => onUpdateMap({ ...noteMap, [key]: mapping })}/>
             {/each}
           </tbody>

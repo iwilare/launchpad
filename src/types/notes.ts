@@ -18,6 +18,9 @@ export const LOWEST_CONTROLLER_NOTE = 36;
 
 export const NoteNameList = Object.values(NoteName);
 
+// The Launchpad key numbers
+export type Key = number;
+
 // The MIDI standard note number
 export type Note = number;
 
@@ -42,6 +45,10 @@ export interface NoteRepr {
 // Hex color codes for Launchpad (00-7F)
 export type LaunchpadColor = number;
 
+export const DEFAULT_COLOR = 0x00;
+
+export type Controller = Map<Key, { active: boolean, color: LaunchpadColor }>;
+
 // Interface for a MIDI note mapping
 export interface NoteMapping {
   target: Note;
@@ -53,10 +60,8 @@ export interface NoteColor {
   pressed: LaunchpadColor;
 }
 
-// Map of MIDI notes to their mappings
-export type NoteMap = {
-  [key: Note]: NoteMapping;
-};
+// Map of Launchpad keys to their mappings
+export type NoteMap = Map<Key, NoteMapping>;
 
 // Interface for a MIDI note mapping
 export interface NiceNoteMapping {
@@ -69,6 +74,59 @@ export interface NiceNoteMapping {
 
 // Map of MIDI notes to their mappings
 export type NiceNoteMap = NiceNoteMapping[];
+
+export function niceNoteMapToNoteMap(value: string): NoteMap | string {
+  const parsedJson = JSON.parse(value);
+
+  if (!Array.isArray(parsedJson)) {
+    return 'JSON must be an array of mappings';
+  }
+
+  const isValid = parsedJson.every(mapping => 
+    typeof mapping?.k === 'number' && 
+    typeof mapping?.n === 'string' && 
+    typeof mapping?.o === 'number' && 
+    typeof mapping?.r === 'number' && 
+    typeof mapping?.p === 'number'
+  );
+
+  if (!isValid) {
+    return 'Each mapping must have: k (number), n (string), o (number), c (number), p (number)';
+  }
+
+  const newNoteMap: NoteMap = new Map();
+  for (const mapping of parsedJson) {
+    const noteName = stringToNoteName(mapping.n);
+    if (!noteName) {
+      return `Invalid note name: ${mapping.n}`;
+    }
+    newNoteMap.set(mapping.k, {
+      target: noteReprToNote({ name: noteName, octave: mapping.o }),
+      color: {
+        rest: mapping.c,
+        pressed: mapping.p
+      }
+    });
+  }
+  return newNoteMap;
+}
+
+export function noteMapToNiceNoteMapFormat(noteMap: NoteMap): string {
+  const maxNameLength = Math.max(...Array.from(noteMap.values()).map(mapping => {
+    const noteRepr = noteToNoteRepr(mapping.target);
+    return noteRepr.name.length;
+  }));
+
+  return `[\n${Array.from(noteMap.entries())
+    .map(([sourceNote, mapping]) => {
+      const noteRepr = noteToNoteRepr(mapping.target);
+      const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
+      return `  { "k": ${sourceNote}, "n": "${noteRepr.name}"${namePadding}, "o": ${noteRepr.octave}, "c": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
+    })
+    .join(',\n')}\n]`
+}
+
+
 
 // Helper function to check if a note is a black key
 export const isBlackKey = (note: NoteName): boolean => {
@@ -151,6 +209,10 @@ export const isBlackNote = (note: Note): boolean => {
   return isBlackKey(noteToNoteRepr(note).name);
 };
 
+export const areSameNote = (note1: Note, note2: Note): boolean => {
+  return noteToNoteRepr(note1).name === noteToNoteRepr(note2).name;
+};
+
 // export const niceNoteMapStringToNoteMap = (niceNoteMapString: string): NoteMap | string => {
 //   try {
 //     // TODO: Check if casting can be done
@@ -193,453 +255,69 @@ export const GRID_LAYOUT: Note[][] = [
 ] as const;
 
 // Default note mappings for the entire range (36-99)
-export const DEFAULT_MAPPINGS: NoteMap = {
-  "36": {
-    "target": 39,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "37": {
-    "target": 41,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "38": {
-    "target": 43,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "39": {
-    "target": 45,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "40": {
-    "target": 44,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "41": {
-    "target": 46,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "42": {
-    "target": 48,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "43": {
-    "target": 50,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "44": {
-    "target": 49,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "45": {
-    "target": 51,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "46": {
-    "target": 53,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "47": {
-    "target": 55,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "48": {
-    "target": 54,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "49": {
-    "target": 56,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "50": {
-    "target": 58,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "51": {
-    "target": 60,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "52": {
-    "target": 59,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "53": {
-    "target": 61,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "54": {
-    "target": 63,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "55": {
-    "target": 65,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "56": {
-    "target": 64,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "57": {
-    "target": 66,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "58": {
-    "target": 68,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "59": {
-    "target": 70,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "60": {
-    "target": 69,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "61": {
-    "target": 71,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "62": {
-    "target": 73,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "63": {
-    "target": 75,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "64": {
-    "target": 74,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "65": {
-    "target": 76,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "66": {
-    "target": 78,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "67": {
-    "target": 80,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "68": {
-    "target": 47,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "69": {
-    "target": 49,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "70": {
-    "target": 51,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "71": {
-    "target": 53,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "72": {
-    "target": 52,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "73": {
-    "target": 54,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "74": {
-    "target": 56,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "75": {
-    "target": 58,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "76": {
-    "target": 57,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "77": {
-    "target": 59,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "78": {
-    "target": 61,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "79": {
-    "target": 63,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "80": {
-    "target": 62,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "81": {
-    "target": 64,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "82": {
-    "target": 66,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "83": {
-    "target": 68,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "84": {
-    "target": 67,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "85": {
-    "target": 69,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "86": {
-    "target": 71,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "87": {
-    "target": 73,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "88": {
-    "target": 72,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "89": {
-    "target": 74,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "90": {
-    "target": 76,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "91": {
-    "target": 78,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "92": {
-    "target": 77,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "93": {
-    "target": 79,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "94": {
-    "target": 81,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "95": {
-    "target": 83,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "96": {
-    "target": 82,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "97": {
-    "target": 84,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "98": {
-    "target": 86,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  },
-  "99": {
-    "target": 88,
-    "color": {
-      "rest": 78,
-      "pressed": 21
-    }
-  }
-}
+export const DEFAULT_MAPPINGS: NoteMap = new Map([
+  [36, { "target": 39, "color": { "rest": 78, "pressed": 21 } }],
+  [37, { "target": 41, "color": { "rest": 78, "pressed": 21 } }],
+  [38, { "target": 43, "color": { "rest": 78, "pressed": 21 } }],
+  [39, { "target": 45, "color": { "rest": 78, "pressed": 21 } }],
+  [40, { "target": 44, "color": { "rest": 78, "pressed": 21 } }],
+  [41, { "target": 46, "color": { "rest": 78, "pressed": 21 } }],
+  [42, { "target": 48, "color": { "rest": 78, "pressed": 21 } }],
+  [43, { "target": 50, "color": { "rest": 78, "pressed": 21 } }],
+  [44, { "target": 49, "color": { "rest": 78, "pressed": 21 } }],
+  [45, { "target": 51, "color": { "rest": 78, "pressed": 21 } }],
+  [46, { "target": 53, "color": { "rest": 78, "pressed": 21 } }],
+  [47, { "target": 55, "color": { "rest": 78, "pressed": 21 } }],
+  [48, { "target": 54, "color": { "rest": 78, "pressed": 21 } }],
+  [49, { "target": 56, "color": { "rest": 78, "pressed": 21 } }],
+  [50, { "target": 58, "color": { "rest": 78, "pressed": 21 } }],
+  [51, { "target": 60, "color": { "rest": 78, "pressed": 21 } }],
+  [52, { "target": 59, "color": { "rest": 78, "pressed": 21 } }],
+  [53, { "target": 61, "color": { "rest": 78, "pressed": 21 } }],
+  [54, { "target": 63, "color": { "rest": 78, "pressed": 21 } }],
+  [55, { "target": 65, "color": { "rest": 78, "pressed": 21 } }],
+  [56, { "target": 64, "color": { "rest": 78, "pressed": 21 } }],
+  [57, { "target": 66, "color": { "rest": 78, "pressed": 21 } }],
+  [58, { "target": 68, "color": { "rest": 78, "pressed": 21 } }],
+  [59, { "target": 70, "color": { "rest": 78, "pressed": 21 } }],
+  [60, { "target": 69, "color": { "rest": 78, "pressed": 21 } }],
+  [61, { "target": 71, "color": { "rest": 78, "pressed": 21 } }],
+  [62, { "target": 73, "color": { "rest": 78, "pressed": 21 } }],
+  [63, { "target": 75, "color": { "rest": 78, "pressed": 21 } }],
+  [64, { "target": 74, "color": { "rest": 78, "pressed": 21 } }],
+  [65, { "target": 76, "color": { "rest": 78, "pressed": 21 } }],
+  [66, { "target": 78, "color": { "rest": 78, "pressed": 21 } }],
+  [67, { "target": 80, "color": { "rest": 78, "pressed": 21 } }],
+  [68, { "target": 47, "color": { "rest": 78, "pressed": 21 } }],
+  [69, { "target": 49, "color": { "rest": 78, "pressed": 21 } }],
+  [70, { "target": 51, "color": { "rest": 78, "pressed": 21 } }],
+  [71, { "target": 53, "color": { "rest": 78, "pressed": 21 } }],
+  [72, { "target": 52, "color": { "rest": 78, "pressed": 21 } }],
+  [73, { "target": 54, "color": { "rest": 78, "pressed": 21 } }],
+  [74, { "target": 56, "color": { "rest": 78, "pressed": 21 } }],
+  [75, { "target": 58, "color": { "rest": 78, "pressed": 21 } }],
+  [76, { "target": 57, "color": { "rest": 78, "pressed": 21 } }],
+  [77, { "target": 59, "color": { "rest": 78, "pressed": 21 } }],
+  [78, { "target": 61, "color": { "rest": 78, "pressed": 21 } }],
+  [79, { "target": 63, "color": { "rest": 78, "pressed": 21 } }],
+  [80, { "target": 62, "color": { "rest": 78, "pressed": 21 } }],
+  [81, { "target": 64, "color": { "rest": 78, "pressed": 21 } }],
+  [82, { "target": 66, "color": { "rest": 78, "pressed": 21 } }],
+  [83, { "target": 68, "color": { "rest": 78, "pressed": 21 } }],
+  [84, { "target": 67, "color": { "rest": 78, "pressed": 21 } }],
+  [85, { "target": 69, "color": { "rest": 78, "pressed": 21 } }],
+  [86, { "target": 71, "color": { "rest": 78, "pressed": 21 } }],
+  [87, { "target": 73, "color": { "rest": 78, "pressed": 21 } }],
+  [88, { "target": 72, "color": { "rest": 78, "pressed": 21 } }],
+  [89, { "target": 74, "color": { "rest": 78, "pressed": 21 } }],
+  [90, { "target": 76, "color": { "rest": 78, "pressed": 21 } }],
+  [91, { "target": 78, "color": { "rest": 78, "pressed": 21 } }],
+  [92, { "target": 77, "color": { "rest": 78, "pressed": 21 } }],
+  [93, { "target": 79, "color": { "rest": 78, "pressed": 21 } }],
+  [94, { "target": 81, "color": { "rest": 78, "pressed": 21 } }],
+  [95, { "target": 83, "color": { "rest": 78, "pressed": 21 } }],
+  [96, { "target": 82, "color": { "rest": 78, "pressed": 21 } }],
+  [97, { "target": 84, "color": { "rest": 78, "pressed": 21 } }],
+  [98, { "target": 86, "color": { "rest": 78, "pressed": 21 } }],
+  [99, { "target": 88, "color": { "rest": 78, "pressed": 21 } }]
+])

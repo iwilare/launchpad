@@ -18,7 +18,7 @@ export function initializeSoundState(): SoundState {
     return { ...emptySoundState(), audioContext: new window.AudioContext() }
 }
 
-export function releaseAudioNote(ss: SoundState, note: number) { 
+export function releaseNoteAudioSynth(ss: SoundState, note: number) { 
     const n = ss.activeNotes.get(note);
     if (n) {
         if (n.number > 1) {
@@ -30,17 +30,16 @@ export function releaseAudioNote(ss: SoundState, note: number) {
     }
 }
 
-export function stopEverythingAudio(ss: SoundState) {
+export function stopEverythingAudioSynth(ss: SoundState) {
     ss.activeNotes.forEach((n) => {
         n.oscillator.stop();
     });
     ss.activeNotes.clear();
 }
 
-export function pressAudioNote(ss: SoundState, sc: SoundSettings, note: number, velocity: number = 1.0): null | string {
+export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: number, velocity: number = 1.0): null | string {
     const n = ss.activeNotes.get(note);
     if (!n) {
-        if (!sc.enabled) return null;
         if (!ss.audioContext) return 'No audio context';
 
         const oscillator = ss.audioContext.createOscillator();

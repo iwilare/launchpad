@@ -1,27 +1,32 @@
-import { areSameNote, isBlackNote, noteToNoteRepr, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
+import { isBlackNote, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
 
 export interface SoundSettings {
-    enabled: boolean;
     volume: number;
     waveform: OscillatorType;
 }
 
 export interface ColorSettings {
-    isUniform: boolean;
+    singleColor: boolean;
     whiteRest: LaunchpadColor;
     whitePressed: LaunchpadColor;
     blackRest: LaunchpadColor;
     blackPressed: LaunchpadColor;
-    uniformRest: LaunchpadColor;
-    uniformPressed: LaunchpadColor;
 }
 
 export type ShowSameNote = "no" | "yes" | "octave";
 
 export type NoteState = Map<Note, number> // number of times the note is being pressed
 
+export const increaseNoteState = (noteState: NoteState, note: number): NoteState => {
+    return new Map(noteState).set(note, (noteState.get(note) ?? 0) + 1);
+};
+
+export const decreaseNoteState = (noteState: NoteState, note: number): NoteState => {
+    return new Map(noteState).set(note,(noteState.get(note) ?? 1) - 1);
+};
+
 export const increaseNoteMut = (noteState: NoteState, note: number) => {
-    noteState.set(note, (noteState.get(note) || 0) + 1);
+    noteState.set(note, (noteState.get(note) ?? 0) + 1);
 };
 
 export const decreaseNoteMut = (noteState: NoteState, note: number) => {
@@ -45,15 +50,15 @@ export const isLastNote = (noteState: NoteState, note: number) => {
 };
 
 export function colorFromSettings(settings: ColorSettings, note: Note): NoteColor {
-    return settings.isUniform ? {
-        rest: settings.uniformRest,
-        pressed: settings.uniformPressed,
-    } : isBlackNote(note) ? {
-        rest: settings.blackRest,
-        pressed: settings.blackPressed,
-    } : {
+    return settings.singleColor ? {
         rest: settings.whiteRest,
         pressed: settings.whitePressed,
+    } : !isBlackNote(note) ? {
+        rest: settings.whiteRest,
+        pressed: settings.whitePressed,
+    } : {
+        rest: settings.blackRest,
+        pressed: settings.blackPressed,
     }
 }
 

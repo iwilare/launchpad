@@ -1,5 +1,5 @@
 <script lang="ts">
-  import '../static/app.css';
+  import "../static/app.css";
 
   import { onMount } from "svelte";
   import MIDINoteMap from "$lib/MIDINoteMap.svelte";
@@ -8,138 +8,173 @@
   import ThemeToggle from "$lib/ThemeToggle.svelte";
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
-  import { type Note, type NoteMap, noteToString, DEFAULT_MAPPINGS, areSameNote, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat, type Key, type LaunchpadColor, type Controller } from "../types/notes";
-  import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, type SoundSettings, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut } from '../types/ui';
-  import { emptySoundState, initializeSoundState, pressAudioNote, releaseAudioNote, stopEverythingAudio, type SoundState } from '../types/sound';
-  import { browser } from '$app/environment';
-  import { SvelteMap } from 'svelte/reactivity';
-    
+  import { type Note, type NoteMap, noteToString, DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type Key, type LaunchpadColor, type Controller, areSameNote, niceNoteMapToNoteMap, } from "../types/notes";
+  import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, type SoundSettings, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, } from "../types/ui";
+  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, } from "../types/sound";
+  import { SvelteMap } from "svelte/reactivity";
+
   let midiAccess: MIDIAccess | null = null;
   let selectedInputDevice: string | null = null;
-  let selectedOutputDevice: string | null = null;
+  let selectedColorDevice: string | null = null;
+  let selectedOutputDevice: string | 42 | null = null;
   let inputDevices: MIDIInput[] = [];
   let outputDevices: MIDIOutput[] = [];
 
-  let showSameNotePressed: ShowSameNote = 'yes';
+  let showSameNotePressed: ShowSameNote = "yes";
   let noteMap: NoteMap = DEFAULT_MAPPINGS;
+
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = new SvelteMap();
-  
+
   let theme: "light" | "dark" = "dark";
-  let colorSettings = {
-    isUniform: true,
+  let colorSettings: ColorSettings = {
+    singleColor: true,
     whiteRest: 0x4e,
     whitePressed: 0x15,
     blackRest: 0x5f,
-    blackPressed: 0x15,
-    uniformRest: 0x4e,
-    uniformPressed: 0x15
+    blackPressed: 0x15
   };
 
-  let soundState: SoundState = emptySoundState()
+  let soundState: SoundState = emptySoundState();
   let soundSettings: SoundSettings = {
     volume: 0.5,
-    waveform: 'sine',
-    enabled: true,
-  }
+    waveform: "sine"
+  };
 
-  onMount(() => { 
-    soundState = initializeSoundState(); 
+  onMount(() => {
+    soundState = initializeSoundState();
   });
 
   onMount(() => {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    theme = savedTheme ? savedTheme : new Date().getHours() >= 18 || new Date().getHours() < 6 ? "dark" : "light";
+    theme = savedTheme
+      ? savedTheme
+      : new Date().getHours() >= 18 || new Date().getHours() < 6
+        ? "dark"
+        : "light";
     document.documentElement.setAttribute("data-theme", theme);
     document.body.setAttribute("data-theme", theme);
   });
 
   onMount(() => {
     const savedNoteMap = localStorage.getItem("noteMap");
-    if(savedNoteMap) {
+    if (savedNoteMap) {
       const maybeMap = niceNoteMapToNoteMap(savedNoteMap);
-      console.log("SESSION: ", maybeMap, savedNoteMap);
-      if(typeof maybeMap !== 'string') {
+      if (typeof maybeMap !== "string") {
         noteMap = maybeMap;
       }
     }
   });
 
-  $: if (browser) { localStorage.setItem("noteMap", noteMapToNiceNoteMapFormat(noteMap)); }
-  $: if (browser) { localStorage.setItem("showSameNotePressed", showSameNotePressed); }
-  $: if (browser) { localStorage.setItem("colorSettings", JSON.stringify(colorSettings)); }
-  $: if (browser) { localStorage.setItem("soundSettings", JSON.stringify(soundSettings)); }
-  $: if (browser) { localStorage.setItem("theme", theme); }
-  $: if (browser) { localStorage.setItem("midiInputDevice", selectedInputDevice ?? ""); }
-  $: if (browser) { localStorage.setItem("midiOutputDevice", selectedOutputDevice ?? ""); }
-  
   /* MIDI logic */
   function connectToInputDevice(deviceId: string) {
-    if (!midiAccess) return 'No midi access to connect to input device';
+    if (!midiAccess) { 
+      console.error("No midi access to connect to input device");
+      return "No midi access to connect to input device";
+    }
     const selectedInput = midiAccess.inputs.get(deviceId);
     if (selectedInput) {
       console.log("Connecting to input device", deviceId);
-      stopEverything();
+      stopEverythingAudio();
       midiAccess.inputs.forEach((input) => {
         input.onmidimessage = null;
       });
       selectedInput.onmidimessage = onMIDIMessage;
       selectedInputDevice = deviceId;
+      localStorage.setItem("midiInputDevice", selectedInputDevice);
     } else {
-      console.log("Requested input device not found", deviceId);
-      return 'Requested input device not found';
+      console.error("Requested input device not found", deviceId);
+      return "Requested input device not found";
     }
   }
 
-  function connectToOutputDevice(deviceId: string) {
-    if (!midiAccess) return "No midi access";
-    const selectedOutput = midiAccess.outputs.get(deviceId);
-    if (selectedOutput) {
-      stopEverything();
-      selectedOutputDevice = deviceId;
+  function connectToColorDevice(deviceId: string) {
+    if (!midiAccess) {
+      console.error("No midi access to connect to color device");
+      return "No midi access to connect to color device";
+    }
+    const selectedColor = midiAccess.outputs.get(deviceId);
+    if (selectedColor) {
+      console.log("Connecting to color device", deviceId);
+      selectedColorDevice = deviceId;
       sendAllKeyboardColors();
+      localStorage.setItem("midiColorDevice", selectedColorDevice);
     } else {
-      console.log("Requested output device not found", deviceId);
-      return 'Requested output device not found';
+      console.error("Requested color device not found", deviceId);
+      return "Requested color device not found";
+    }
+  }
+
+  function connectToOutputDevice(deviceId: string | 42) {
+    if(typeof deviceId === 'string') {
+      if (!midiAccess) { 
+        console.error("No midi access to connect to output device");
+        return "No midi access to connect to output device";
+      }
+      const selectedColor = midiAccess.outputs.get(deviceId);
+      if (selectedColor) {
+        console.log("Connecting to output device", deviceId);
+        stopEverythingAudio();
+        selectedOutputDevice = deviceId;
+        localStorage.setItem("midiOutputDevice", selectedOutputDevice);
+      } else {
+        console.error("Requested output device not found", deviceId);
+        return "Requested output device not found";
+      }
+    } else {
+      selectedOutputDevice = 42;
+      console.log("Connecting to default output device");
+      localStorage.setItem("midiOutputDevice", 'default');
+      return;
     }
   }
 
   async function initializeMIDIAccess() {
     if (navigator.requestMIDIAccess) {
       midiAccess = await navigator.requestMIDIAccess({ sysex: true });
-      if(!midiAccess) {
-        return 'Failed to initialize MIDI access';
+      if (!midiAccess) {
+        return "Failed to initialize MIDI access";
       }
-      function onStateChange() {
+      function onMIDIStateChange() {
         if (!midiAccess) return;
+
+        console.log("MIDI state change");
 
         inputDevices = [...midiAccess.inputs.values()].reverse();
         outputDevices = [...midiAccess.outputs.values()].reverse();
 
         if (selectedInputDevice === null && inputDevices.length > 0) {
-          if(localStorage.getItem("midiInputDevice")) {
+          if (localStorage.getItem("midiInputDevice")) {
             connectToInputDevice(localStorage.getItem("midiInputDevice") as string);
           } else {
-            connectToInputDevice(inputDevices[inputDevices.length - 1].id)
+            connectToInputDevice(inputDevices[inputDevices.length - 1].id);
           }
         }
-        if (selectedOutputDevice === null && outputDevices.length > 0) {
-          if(localStorage.getItem("midiOutputDevice")) {
-            connectToOutputDevice(localStorage.getItem("midiOutputDevice") as string);
+        if (selectedColorDevice === null && outputDevices.length > 0) {
+          if (localStorage.getItem("midiColorDevice")) {
+            connectToColorDevice(localStorage.getItem("midiColorDevice") as string);
           } else {
-            connectToOutputDevice(outputDevices[outputDevices.length - 1].id);
+            connectToColorDevice(outputDevices[outputDevices.length - 1].id);
+          }
+        }
+        if (selectedOutputDevice === null) {
+          const output = localStorage.getItem("midiOutputDevice")
+          if (output) {
+            connectToOutputDevice(output === 'default' ? 42 : output);
           }
         }
       }
-      onStateChange();
-      midiAccess.addEventListener("statechange", onStateChange);
+      onMIDIStateChange();
+      midiAccess.addEventListener("statechange", onMIDIStateChange);
     } else {
-      return 'MIDI access not supported';
+      return "MIDI access not supported";
     }
   }
 
   // Initialize MIDI access and devices
-  onMount(() => { initializeMIDIAccess() });
+  onMount(() => {
+    initializeMIDIAccess();
+  });
 
   function handleThemeChange(newTheme: "light" | "dark") {
     theme = newTheme;
@@ -147,77 +182,128 @@
     document.body.setAttribute("data-theme", newTheme);
   }
 
-  function sendMIDIPacket(message: number[]): string | null {
+  function sendMIDIPacket(deviceId: string, message: number[]): string | null {
     if (!midiAccess) return "No midi access";
-    if (!selectedOutputDevice) return "No selected device";
-
-    const output = midiAccess.outputs.get(selectedOutputDevice);
-    if (!output) return "No selected output device";
-
+    const output = midiAccess.outputs.get(deviceId);
+    if (!output) return "No selected device when trying to send packet";
     try {
       output.send(new Uint8Array(message));
-      return null
+      return null;
     } catch (error) {
       return "Could not send MIDI packet";
     }
   }
 
   function controllerChangeColor(key: Note, isPressed: boolean): string | null {
-    console.log("Controller change color", key, isPressed);
     const mapping = noteMap.get(key);
-    if (!mapping) return 'No mapping to send color';
+    if (!mapping) return "No mapping to send color";
     const color = isPressed ? mapping.color.pressed : mapping.color.rest;
-    controller.set(key, { active: controller.get(key)?.active ?? false, color });
-    return sendMIDIPacket([0x90, key, color]);
+    controller.set(key, {
+      active: controller.get(key)?.active ?? false,
+      color,
+    });
+    if (selectedColorDevice) {
+      return sendMIDIPacket(selectedColorDevice, [0x90, key, color]);
+    } else {
+      console.log("No selected color device");
+      return null;
+    }
   }
 
-  function colorNote(key: Note, isPressed: boolean) {
+  function handleNoteColor(key: Note, isPressed: boolean) {
     const map = noteMap.get(key);
-    if (showSameNotePressed === 'yes') {
-      noteMap.forEach((otherMap, otherKey) => {
-        if (map && map.target == otherMap.target) {
-          return controllerChangeColor(otherKey, isPressed);
-        }
-      });
-    } else if (showSameNotePressed === 'octave') {
-      noteMap.forEach((otherMap, otherKey) => {
-        if (map && areSameNote(map.target, otherMap.target)) {
-          return controllerChangeColor(otherKey, isPressed);
-        }
-      });
+    if (!map) return;
+    if (showSameNotePressed === "yes") {
+      let wouldBeAffectedNotes = 0;
+      activeNotes.forEach((k, n) => { if (n > 0 && map.target == k) { wouldBeAffectedNotes++; } });
+      const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
+      console.log(activeNotes);
+      console.log("Note:" , key, wouldBeAffectedNotes, isPressed, needsChange);
+      if(needsChange) {
+        noteMap.forEach((otherMap, otherKey) => {
+          if (map && map.target == otherMap.target) {
+            return controllerChangeColor(otherKey, isPressed);
+          }
+        });
+      }
+    } else if (showSameNotePressed === "octave") {
+      let wouldBeAffectedNotes = 0;
+      activeNotes.forEach((k, n) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes++; } });
+      const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
+      if(needsChange) {
+        noteMap.forEach((otherMap, otherKey) => {
+          if (map && areSameNote(map.target, otherMap.target)) {
+            return controllerChangeColor(otherKey, isPressed);
+          }
+        });
+      }
     } else {
       return controllerChangeColor(key, isPressed);
     }
   }
 
+  function stopEverythingAudio() {
+    if(selectedOutputDevice) {
+      if(typeof selectedOutputDevice === 'string') {
+        controller.forEach((_, key) => {
+          releaseNoteAudio(key);
+        });
+      } else {
+        stopEverythingAudioSynth(soundState);
+      }
+    }
+  }
+
+  function pressNoteAudio(note: Note, velocity: number = 1.0) {
+    if(selectedOutputDevice) {
+      if(typeof selectedOutputDevice === 'string') {
+        sendMIDIPacket(selectedOutputDevice, [0x90, note, velocity]);
+      } else {
+        pressNoteAudioSynth(soundState, soundSettings, note, velocity);
+      }
+    } 
+  }
+
+  function releaseNoteAudio(note: Note) {
+    if(selectedOutputDevice) {
+      if(typeof selectedOutputDevice === 'string') {
+        sendMIDIPacket(selectedOutputDevice, [0x80, note, 0]);
+      } else {
+        releaseNoteAudioSynth(soundState, note);
+      }
+    }
+  }
+
   function playKey(key: Key, velocity: number = 1.0) {
-    console.log("Playing key", key);
     const map = noteMap.get(key);
-    if (!map) throw 'No mapping to play note';
+    if (!map) throw "No mapping to play note";
     const k = controller.get(key);
     if (k !== undefined && !k.active) {
-      console.log("Playing key, active", key);
-      colorNote(key, true);
       controller.set(key, { ...k, active: true });
+      console.log("PLAY: ", activeNotes);
+      handleNoteColor(key, true);
       increaseNoteMut(activeNotes, map.target);
-      pressAudioNote(soundState, soundSettings, map.target, velocity);
+      pressNoteAudio(map.target, velocity);
     }
   }
 
   function stopKey(key: Key) {
     const map = noteMap.get(key);
-    if (!map) throw 'No mapping to play note';
+    if (!map) throw "No mapping to play note";
     const k = controller.get(key);
     if (k !== undefined && k.active) {
-      colorNote(key, false);
       controller.set(key, { ...k, active: false });
+      console.log("STOP: ", activeNotes);
+      handleNoteColor(key, false);
       decreaseNoteMut(activeNotes, map.target);
-      releaseAudioNote(soundState, map.target);
+      releaseNoteAudio(map.target);
     }
   }
 
   function onMIDIMessage(event: MIDIMessageEvent) {
-    if (!event.data) { return; }
+    if (!event.data) {
+      return;
+    }
 
     const [status, note, velocity] = Array.from(event.data);
 
@@ -256,20 +342,17 @@
   }
 
   function sendAllKeyboardColors() {
-    noteMap.forEach((mapping, note) => {
+    console.log("Sending all keyboard colors");
+    noteMap.forEach((_, note) => {
       controllerChangeColor(note, false);
     });
   }
 
   function setNoteMap(newNoteMap: NoteMap) {
+    stopEverythingAudio();
     noteMap = newNoteMap;
     sendAllKeyboardColors();
-    stopEverythingAudio(soundState);
-  }
-
-  function stopEverything() {
-    stopEverythingAudio(soundState);
-    activeNotes.clear();
+    localStorage.setItem("noteMap", noteMapToNiceNoteMapFormat(noteMap));
   }
 </script>
 
@@ -288,11 +371,7 @@
           value={selectedInputDevice}
           on:change={(e) => {
             const target = e.target as HTMLSelectElement;
-            if (target) {
-              let str = connectToInputDevice(target.value);
-              if (str) { console.error(`Connecting to input device ${target.value} failed: ${str}`); }
-              else { console.log(`Selected and connected to input device ${target.value}`); }
-            }
+            if (target) { connectToInputDevice(target.value); }
           }}
         >
           {#each inputDevices as device}
@@ -301,19 +380,31 @@
         </select>
       </div>
       <div class="device-group">
+        <label for="output-device">Color Device:</label>
+        <select
+          id="output-device"
+          value={selectedColorDevice}
+          on:change={(e) => {
+            const target = e.target as HTMLSelectElement;
+            if (target) { connectToColorDevice(target.value); }
+          }}
+        >
+          {#each outputDevices as device}
+            <option value={device.id}>{device.name}</option>
+          {/each}
+        </select>
+      </div>
+      <div class="device-group">
         <label for="output-device">Output Device:</label>
         <select
           id="output-device"
-          value={selectedOutputDevice}
+          value={typeof selectedOutputDevice === 'string' ? selectedOutputDevice : 'default'}
           on:change={(e) => {
             const target = e.target as HTMLSelectElement;
-            if (target) {
-              let str = connectToOutputDevice(target.value);
-              if (str) { console.error(`Connecting to output device ${target.value} failed: ${str}`); }
-              else { console.log(`Connected to output device ${target.value}`); }
-            }
+            if (target) { connectToOutputDevice(target.value === 'default' ? 42 : target.value); }
           }}
         >
+          <option value="default">Built-in synth</option>
           {#each outputDevices as device}
             <option value={device.id}>{device.name}</option>
           {/each}
@@ -331,23 +422,22 @@
     {/if}
   </div>
 
+  {#if typeof selectedOutputDevice !== 'string'}
   <div class="section">
     <h3>Sound Generator</h3>
     <SoundGenerator
       settings={soundSettings}
-      onSettingsChange={(settings) => {
-        stopEverythingAudio(soundState);
-        soundSettings = settings
-      }}
-    />
-  </div>
+      onSettingsChange={(settings) => { soundSettings = settings; }}
+      />
+    </div>
+  {/if}
 
   <div class="section">
     <h3>Isomorphic Keyboard Layout</h3>
     <IsomorphicKeyboardGenerator
-       onUpdateMapping={setNoteMap} 
-       getNoteColor={(note) => colorFromSettings(colorSettings, note)}
-       />
+      onUpdateMapping={setNoteMap}
+      getNoteColor={(note) => colorFromSettings(colorSettings, note)}
+    />
   </div>
 
   <div class="section">
@@ -366,11 +456,11 @@
   </div>
 
   <div class="section">
-    <h3>Default Colors</h3>
+    <h3>Default colors</h3>
     <DefaultColorsSettings
       {colorSettings}
       onColorSettingsChange={(settings) => {
-        (colorSettings = settings)
+        colorSettings = settings;
         setNoteMap(applyColorsToMap(settings, noteMap));
       }}
     />
@@ -380,29 +470,52 @@
     <div class="mapping-container">
       <h3>Settings</h3>
       <div class="settings-controls">
-        <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;">
+        <div
+          style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;"
+        >
           <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'no'} on:change={() => showSameNotePressed = 'no'} />
+            <input
+              type="radio"
+              name="show-same-note-pressed"
+              checked={showSameNotePressed === "no"}
+              on:change={() => (showSameNotePressed = "no")}
+            />
             Light up only the physical button
           </label>
           <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'yes'} on:change={() => showSameNotePressed = 'yes'} />
+            <input
+              type="radio"
+              name="show-same-note-pressed"
+              checked={showSameNotePressed === "yes"}
+              on:change={() => (showSameNotePressed = "yes")}
+            />
             Light up any occurrence of the note
           </label>
           <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === 'octave'} on:change={() => showSameNotePressed = 'octave'} />
+            <input
+              type="radio"
+              name="show-same-note-pressed"
+              checked={showSameNotePressed === "octave"}
+              on:change={() => (showSameNotePressed = "octave")}
+            />
             Light up any occurrence of the note in any octave
           </label>
         </div>
       </div>
-      <button on:click={sendAllKeyboardColors} class="action" style="margin-left: 24px;">Sync Keyboard</button>
+      <button
+        on:click={sendAllKeyboardColors}
+        class="action"
+        style="margin-left: 24px;">Sync Keyboard</button
+      >
     </div>
   </div>
 
   <div class="section">
     <MIDINoteMap {noteMap} onUpdateMap={setNoteMap} />
-    <button style="margin-top: 10px;" on:click={() => setNoteMap(DEFAULT_MAPPINGS)} class="action"
-      >Reset Keyboard Layout</button
+    <button
+      style="margin-top: 10px;"
+      on:click={() => setNoteMap(DEFAULT_MAPPINGS)}
+      class="action">Reset Keyboard Layout</button
     >
   </div>
 </div>
@@ -544,5 +657,4 @@
     justify-content: center;
     gap: 32px;
   }
-
 </style>

@@ -82,18 +82,6 @@ export function niceNoteMapToNoteMap(value: string): NoteMap | string {
     return 'JSON must be an array of mappings';
   }
 
-  const isValid = parsedJson.every(mapping => 
-    typeof mapping?.k === 'number' && 
-    typeof mapping?.n === 'string' && 
-    typeof mapping?.o === 'number' && 
-    typeof mapping?.r === 'number' && 
-    typeof mapping?.p === 'number'
-  );
-
-  if (!isValid) {
-    return 'Each mapping must have: k (number), n (string), o (number), c (number), p (number)';
-  }
-
   const newNoteMap: NoteMap = new Map();
   for (const mapping of parsedJson) {
     const noteName = stringToNoteName(mapping.n);

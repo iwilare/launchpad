@@ -8,16 +8,6 @@
 <div class="sound-generator">
   <div class="control-row">
     <div class="sound-control-group">
-      <label for="enabled">Enabled</label>
-      <input
-        type="checkbox"
-        id="sound-enabled"
-        name="sound-enabled"
-        checked={settings.enabled}
-        on:change={(e) => { onSettingsChange({ ...settings, enabled: (e.target as HTMLInputElement).checked }); }}
-      />
-    </div>
-    <div class="sound-control-group">
       <label for="waveform">Waveform</label>
       <select
         id="waveform"

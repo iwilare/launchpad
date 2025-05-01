@@ -12,105 +12,60 @@
 </script>
 
 <div class="color-settings">
-  <div style="display: flex; gap: 20px; width: 100%;">
-    <div class="panel" style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
-      <div class="table-container">
-        <div class="spacer"></div>
-        <table class="color-settings-table">
-          <tbody>
-            <tr>
-              <th></th>
-              <th></th>
-            </tr>
-            <tr>
-              <td>Rest</td>
-              <td>
-                <ColorButton
-                  index={4}
-                  value={colorSettings.uniformRest}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, uniformRest: v }); }}
-                />
-              </td>
-            </tr>
-            <tr>
-              <td>Pressed</td>
-              <td>
-                <ColorButton
-                  index={5}
-                  value={colorSettings.uniformPressed}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, uniformPressed: v }); }}
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="button-group">
-        <label for="radio-uniform">
-          <input type="radio" name="color-scheme" checked={colorSettings.isUniform} id="radio-uniform"
-                 on:change={() => onColorSettingsChange({ ...colorSettings, isUniform: true })} />
-          Uniform Colors
-        </label>
-      </div>
+  <div class="panel">
+    <div class="table-container">
+      <table class="color-settings-table">
+        <thead>
+          <tr>
+            <th></th>
+            <th>White</th>
+            <th>Black</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Rest</td>
+            <td>
+              <ColorButton
+                index={0}
+                value={colorSettings.whiteRest}
+                onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, whiteRest: v }); }}
+              />
+            </td>
+            <td>
+              <ColorButton
+                index={2}
+                value={colorSettings.blackRest}
+                onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, blackRest: v }); }}
+              />
+            </td>
+          </tr>
+          <tr>  
+            <td>Pressed</td>
+            <td>
+              <ColorButton
+                index={1}
+                value={colorSettings.whitePressed}
+                onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, whitePressed: v }); }}
+              />
+            </td>
+            <td>
+              <ColorButton
+                index={3}
+                value={colorSettings.blackPressed}
+                onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, blackPressed: v }); }}
+              />
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-
-    <div class="panel" style="flex: 1; display: flex; flex-direction: column; gap: 15px;">
-      <div class="table-container">
-        <table class="color-settings-table">
-          <thead>
-            <tr>
-              <th></th>
-              <th>White</th>
-              <th>Black</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Rest</td>
-              <td>
-                <ColorButton
-                  index={0}
-                  value={colorSettings.whiteRest}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, whiteRest: v }); }}
-                />
-              </td>
-              <td>
-                <ColorButton
-                  index={2}
-                  value={colorSettings.blackRest}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, blackRest: v }); }}
-                />
-              </td>
-            </tr>
-            <tr>  
-              <td>Pressed</td>
-              <td>
-                <ColorButton
-                  index={1}
-                  value={colorSettings.whitePressed}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, whitePressed: v }); }}
-                />
-              </td>
-              <td>
-                <ColorButton
-                  index={3}
-                  value={colorSettings.blackPressed}
-                  onChange={(v: LaunchpadColor) => { onColorSettingsChange({ ...colorSettings, blackPressed: v }); }}
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="button-group">
-        <label for="radio-differentiated">
-          <input type="radio" name="color-scheme" id="radio-differentiated"
-                 checked={!colorSettings.isUniform} 
-                 on:change={() => { onColorSettingsChange({ ...colorSettings, isUniform: false }) }}
-          />
-          Differentiated Colors
-        </label>
-      </div>
+    <div class="single-color-toggle">
+      <label for="single-color">
+        <input type="checkbox" id="single-color" checked={colorSettings.singleColor}
+               on:change={() => onColorSettingsChange({ ...colorSettings, singleColor: !colorSettings.singleColor })} />
+        Single Color
+      </label>
     </div>
   </div>
 </div>
@@ -118,20 +73,26 @@
 <style>
   .color-settings {
     display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .panel {
+    background: var(--section-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
     width: 100%;
   }
 
   .table-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .spacer {
-    flex: 1;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto;
   }
 
   .color-settings-table {
@@ -141,18 +102,29 @@
 
   .color-settings-table th,
   .color-settings-table td {
-    padding: 4px 8px;
-    text-align: left;
+    padding: 8px;
+    text-align: center;
     border-bottom: 1px solid var(--border-color);
   }
 
   .color-settings-table th {
     font-weight: 500;
     color: var(--text-color);
-    padding-top: 0px;
   }
 
   .color-settings-table td:first-child {
-    min-width: 60px;
+    text-align: right;
+    padding-right: 15px;
+  }
+
+  .single-color-toggle {
+    margin-top: 5px;
+  }
+
+  .single-color-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
   }
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
-  import "../static/app.css";
-
+  import "../static/app.css";  
+  
   import { onMount } from "svelte";
   import MIDINoteMap from "$lib/MIDINoteMap.svelte";
   import SoundGenerator from "$lib/SoundGenerator.svelte";

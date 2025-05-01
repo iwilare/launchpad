@@ -17,13 +17,13 @@ export type ShowSameNote = "no" | "yes" | "octave";
 
 export type NoteState = Map<Note, number> // number of times the note is being pressed
 
-export const increaseNoteState = (noteState: NoteState, note: number): NoteState => {
-    return new Map(noteState).set(note, (noteState.get(note) ?? 0) + 1);
-};
+// export const increaseNoteState = (noteState: NoteState, note: number): NoteState => {
+//     return new Map(noteState).set(note, (noteState.get(note) ?? 0) + 1);
+// };
 
-export const decreaseNoteState = (noteState: NoteState, note: number): NoteState => {
-    return new Map(noteState).set(note,(noteState.get(note) ?? 1) - 1);
-};
+// export const decreaseNoteState = (noteState: NoteState, note: number): NoteState => {
+//     return new Map(noteState).set(note,(noteState.get(note) ?? 1) - 1);
+// };
 
 export const increaseNoteMut = (noteState: NoteState, note: number) => {
     noteState.set(note, (noteState.get(note) ?? 0) + 1);

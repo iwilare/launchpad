@@ -205,7 +205,7 @@
     if (selectedColorDevice) {
       return sendMIDIPacket(selectedColorDevice, [0x90, key, color]);
     } else {
-      console.log("No selected color device");
+      console.error("No selected color device");
       return null;
     }
   }
@@ -215,10 +215,11 @@
     if (!map) return;
     if (showSameNotePressed === "yes") {
       let wouldBeAffectedNotes = 0;
-      activeNotes.forEach((k, n) => { if (n > 0 && map.target == k) { wouldBeAffectedNotes++; } });
+      activeNotes.forEach((n, k) => { if (n > 0 && map.target === k) { wouldBeAffectedNotes++; } });
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
-      console.log(activeNotes);
-      console.log("Note:" , key, wouldBeAffectedNotes, isPressed, needsChange);
+      console.info(activeNotes);
+      console.info("Note:" , key, map.target, "AFFECTED: ", wouldBeAffectedNotes, isPressed, needsChange);
+
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
           if (map && map.target == otherMap.target) {
@@ -228,7 +229,7 @@
       }
     } else if (showSameNotePressed === "octave") {
       let wouldBeAffectedNotes = 0;
-      activeNotes.forEach((k, n) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes++; } });
+      activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes++; } });
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
@@ -280,7 +281,6 @@
     const k = controller.get(key);
     if (k !== undefined && !k.active) {
       controller.set(key, { ...k, active: true });
-      console.log("PLAY: ", activeNotes);
       handleNoteColor(key, true);
       increaseNoteMut(activeNotes, map.target);
       pressNoteAudio(map.target, velocity);
@@ -293,7 +293,6 @@
     const k = controller.get(key);
     if (k !== undefined && k.active) {
       controller.set(key, { ...k, active: false });
-      console.log("STOP: ", activeNotes);
       handleNoteColor(key, false);
       decreaseNoteMut(activeNotes, map.target);
       releaseNoteAudio(map.target);

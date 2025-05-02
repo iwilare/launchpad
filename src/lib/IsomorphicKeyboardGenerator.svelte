@@ -51,7 +51,7 @@
         bind:value={$horizontalStep}
         min={-12}
         max={12}
-        on:change={generateIsomorphicLayout}
+        on:input={generateIsomorphicLayout}
       />
     </div>
     <div class="panel-element">
@@ -62,7 +62,7 @@
         bind:value={$verticalStep}
         min={-12}
         max={12}
-        on:change={generateIsomorphicLayout}
+        on:input={generateIsomorphicLayout}
       />
     </div>
     <div class="panel-element">

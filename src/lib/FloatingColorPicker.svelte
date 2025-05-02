@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { LaunchpadColors, launchpadColorToTextColorHex } from "../types/colors";
+  import { LaunchpadColors, launchpadColorToTextColorHex, getHexCode, getHue, isGray } from "../types/colors";
   import type { LaunchpadColor } from "../types/notes";
 
   export let value: LaunchpadColor;
@@ -20,6 +20,27 @@
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   });
+
+  // Prepare sorted color entries
+  let sortedColors: { code: number; hexColor: string; hexCode: string; hue: number | null; gray: boolean }[] = [];
+  $: {
+    sortedColors = Object.entries(LaunchpadColors)
+      .map(([codeAsForcedString, hexColor]) => {
+        const code = parseInt(codeAsForcedString);
+        const hexCode = getHexCode(code);
+        const hue = getHue(hexColor);
+        const gray = isGray(hexColor);
+        return { code, hexColor, hexCode, hue, gray };
+      })
+      .sort((a, b) => {
+        // Grays first, then by hue
+        if (a.gray && !b.gray) return -1;
+        if (!a.gray && b.gray) return 1;
+        if (a.gray && b.gray) return a.code - b.code;
+        // Both colored: sort by hue
+        return (a.hue ?? 0) - (b.hue ?? 0);
+      });
+  }
 </script>
 
 <div bind:this={pickerRef} class="floating-color-picker">
@@ -31,15 +52,8 @@
       class="color-search"
     />
     <div class="color-grid">
-      {#each Object.entries(LaunchpadColors) as [codeAsForcedString, hexColor]}
-        {#if !searchTerm || codeAsForcedString
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase())}
-          {@const code = parseInt(codeAsForcedString)}
-          {@const hexCode = Number(code)
-            .toString(16)
-            .padStart(2, "0")
-            .toUpperCase()}
+      {#each sortedColors as {code, hexColor, hexCode} }
+        {#if !searchTerm || hexCode.toLowerCase().includes(searchTerm.toLowerCase())}
           <button
             class="color-option {code === value ? 'selected' : ''}"
             style="background-color: {hexColor}; color: {launchpadColorToTextColorHex(code)}"
@@ -70,7 +84,8 @@
 
   .color-search {
     width: 100%;
-    padding: 8px 12px;
+    box-sizing: border-box;
+    padding: 15px 12px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     outline: none;
@@ -85,25 +100,12 @@
     grid-template-columns: repeat(8, 1fr);
     gap: 8px;
     margin: 10px 0;
-    padding: 5px;
     background: var(--card-bg);
     border-radius: 4px;
   }
 
-  .color-option {
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-family: monospace;
-    color: var(--text-color);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-    transition: transform var(--transition-speed);
+  .inner {
+    padding: 5px;
   }
 
   .color-option:hover {
@@ -114,16 +116,6 @@
   .color-option.selected {
     border: 2px solid var(--text-color);
     box-shadow: 0 0 0 1px var(--border-color);
-  }
-
-  .color-grid {
-    display: grid;
-    grid-template-columns: repeat(8, 1fr);
-    gap: 10px;
-    margin: 15px 0;
-    padding: 10px;
-    background: var(--card-bg);
-    border-radius: 4px;
   }
 
   .color-option {
@@ -140,26 +132,5 @@
     color: #fff;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
     transition: transform 0.1s ease;
-  }
-
-  .color-option:hover {
-    transform: scale(1.1);
-    z-index: 1;
-  }
-
-  .color-option.selected {
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 1px var(--border-color);
-  }
-
-  .color-search {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    outline: none;
-    background-color: var(--input-bg);
-    color: var(--text-color);
-    font-size: 14px;
   }
 </style>

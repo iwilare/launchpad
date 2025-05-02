@@ -156,3 +156,42 @@ export const launchpadColorToTextColorHex = (colorCode: LaunchpadColor): string 
 export const launchpadColorToString = (color: LaunchpadColor): string => {
   return Number(color).toString(16).padStart(2, '0').toUpperCase()
 }
+
+// Get hex code string (e.g. "0A") from LaunchpadColor
+export function getHexCode(code: number): string {
+  return code.toString(16).padStart(2, "0").toUpperCase();
+}
+
+// Get hue from hex color, returns null for grayscale or high luminosity
+export function getHue(hex: string): number | null {
+  // Convert hex to RGB
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  if (max === min) return null; // grayscale
+  let h = 0;
+  if (max === r) h = (g - b) / (max - min);
+  else if (max === g) h = 2 + (b - r) / (max - min);
+  else h = 4 + (r - g) / (max - min);
+  h = Math.round(60 * h);
+  if (h < 0) h += 360;
+  return h;
+}
+
+// Heuristic: consider as gray if saturation is low or luminosity is very high
+export function isGray(hex: string): boolean {
+  // Convert hex to RGB
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const lum = (max + min) / 2;
+  // Calculate saturation
+  let sat = 0;
+  if (max !== min) {
+    sat = lum < 0.5 ? (max - min) / (max + min) : (max - min) / (2 - max - min);
+  }
+  // Thresholds: sat < 0.08 or lum > 0.97
+  return sat < 0.08 || lum > 0.80;
+}

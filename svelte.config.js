@@ -13,7 +13,7 @@ const config = {
 		// See https://svelte.dev/docs/kit/adapters for more information about adapters.
 		adapter: adapter(),
 		paths: {
-			base: process.env.BASE_PATH
+			base: process.argv.includes('dev') ? '' : process.env.BASE_PATH
 		}
 	}
 };

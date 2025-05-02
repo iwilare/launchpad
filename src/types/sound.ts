@@ -1,6 +1,13 @@
 import type { Note } from "./notes";
 import type { SoundSettings } from "./ui";
 
+// Audio envelope constants (in seconds)
+export const ENVELOPE = {
+    ATTACK_TIME: 0.01,  // 10ms attack time
+    RELEASE_TIME: 0.1,  // 100ms release time for smoother fade
+    MAX_VOLUME: 0.3     // Maximum volume multiplier
+} as const; 
+
 export type SoundState = {
   audioContext: AudioContext | null;
   activeNotes: Map<Note, {
@@ -24,7 +31,11 @@ export function releaseNoteAudioSynth(ss: SoundState, note: number) {
         if (n.number > 1) {
             ss.activeNotes.set(note, { ...n, number: n.number - 1 });
         } else {
-            n.oscillator.stop();
+            const currentTime = ss.audioContext!.currentTime;
+            // Release phase: exponential ramp down to 0
+            n.gainNode.gain.setTargetAtTime(0, currentTime, ENVELOPE.RELEASE_TIME / 3);
+            // Stop oscillator after release is complete
+            n.oscillator.stop(currentTime + ENVELOPE.RELEASE_TIME);
             ss.activeNotes.delete(note);
         }
     }
@@ -46,10 +57,16 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
         const gainNode = ss.audioContext.createGain();
 
         oscillator.type = sc.waveform;
-
         oscillator.frequency.setValueAtTime(440 * Math.pow(2, (note - 69) / 12), ss.audioContext.currentTime);
 
-        gainNode.gain.setValueAtTime(velocity * sc.volume * 0.3, ss.audioContext.currentTime);
+        // Set initial gain to 0
+        gainNode.gain.setValueAtTime(0, ss.audioContext.currentTime);
+        // Attack phase: exponential ramp up to target volume
+        gainNode.gain.setTargetAtTime(
+            velocity * sc.volume * ENVELOPE.MAX_VOLUME,
+            ss.audioContext.currentTime,
+            ENVELOPE.ATTACK_TIME / 3
+        );
 
         oscillator.connect(gainNode);
         gainNode.connect(ss.audioContext.destination);

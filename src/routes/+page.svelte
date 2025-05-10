@@ -9,8 +9,8 @@
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
   import { type Note, type NoteMap, noteToString, DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type Key, type LaunchpadColor, type Controller, areSameNote, niceNoteMapToNoteMap, } from "../types/notes";
-  import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, type SoundSettings, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, } from "../types/ui";
-  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, } from "../types/sound";
+  import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, } from "../types/ui";
+  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap } from "svelte/reactivity";
 
   let midiAccess: MIDIAccess | null = null;
@@ -25,6 +25,12 @@
 
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = new SvelteMap();
+  let soundState: SoundState = emptySoundState();
+
+  let deviceSettings: DeviceSettings = {
+    programmerMode: false,
+    brightness: 127,
+  };
 
   let theme: "light" | "dark" = "dark";
   let colorSettings: ColorSettings = {
@@ -32,39 +38,15 @@
     whiteRest: 0x4e,
     whitePressed: 0x15,
     blackRest: 0x5f,
-    blackPressed: 0x15
+    blackPressed: 0x15,
   };
 
-  let soundState: SoundState = emptySoundState();
   let soundSettings: SoundSettings = {
     volume: 0.5,
-    waveform: "sine"
+    waveform: "sine",
+    attackTime: 10,
+    releaseTime: 100,
   };
-
-  onMount(() => {
-    soundState = initializeSoundState();
-  });
-
-  onMount(() => {
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
-    theme = savedTheme
-      ? savedTheme
-      : new Date().getHours() >= 18 || new Date().getHours() < 6
-        ? "dark"
-        : "light";
-    document.documentElement.setAttribute("data-theme", theme);
-    document.body.setAttribute("data-theme", theme);
-  });
-
-  onMount(() => {
-    const savedNoteMap = localStorage.getItem("noteMap");
-    if (savedNoteMap) {
-      const maybeMap = niceNoteMapToNoteMap(savedNoteMap);
-      if (typeof maybeMap !== "string") {
-        noteMap = maybeMap;
-      }
-    }
-  });
 
   /* MIDI logic */
   function connectToInputDevice(deviceId: string) {
@@ -171,11 +153,6 @@
     }
   }
 
-  // Initialize MIDI access and devices
-  onMount(() => {
-    initializeMIDIAccess();
-  });
-
   function handleThemeChange(newTheme: "light" | "dark") {
     theme = newTheme;
     document.documentElement.setAttribute("data-theme", newTheme);
@@ -262,7 +239,7 @@
       if(typeof selectedOutputDevice === 'string') {
         sendMIDIPacket(selectedOutputDevice, [0x80, note, 0]);
       } else {
-        releaseNoteAudioSynth(soundState, note);
+        releaseNoteAudioSynth(soundState, soundSettings, note);
       }
     }
   }
@@ -345,6 +322,85 @@
     sendAllKeyboardColors();
     localStorage.setItem("noteMap", noteMapToNiceNoteMapFormat(noteMap));
   }
+
+  // Function to update brightness, persist, and send MIDI
+  function setBrightness(brightness: number) : string | null{
+    deviceSettings = { ...deviceSettings, brightness };
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("sound_brightness", brightness.toString());
+    }
+    if (selectedColorDevice) {
+      return sendMIDIPacket(selectedColorDevice, [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x08, brightness, 0xF7]);
+    } else {
+      return "No selected color device";
+    }
+  }
+
+  function setSoundSettings(settings: SoundSettings) {
+    soundSettings = settings;
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("sound_attackTime", settings.attackTime.toString());
+      localStorage.setItem("sound_releaseTime", settings.releaseTime.toString());
+      localStorage.setItem("sound_volume", settings.volume.toString());
+      localStorage.setItem("sound_waveform", settings.waveform);
+    }
+  }
+
+  onMount(() => {
+    soundState = initializeSoundState();
+  });
+
+  onMount(() => {
+    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
+    theme = savedTheme
+      ? savedTheme
+      : new Date().getHours() >= 18 || new Date().getHours() < 6
+        ? "dark"
+        : "light";
+    document.documentElement.setAttribute("data-theme", theme);
+    document.body.setAttribute("data-theme", theme);
+  });
+
+  onMount(() => {
+    const savedNoteMap = localStorage.getItem("noteMap");
+    if (savedNoteMap) {
+      const maybeMap = niceNoteMapToNoteMap(savedNoteMap);
+      if (typeof maybeMap !== "string") {
+        noteMap = maybeMap;
+      }
+    }
+  });
+
+  onMount(() => {
+    if (typeof localStorage !== "undefined") {
+      const brightness = localStorage.getItem("sound_brightness");
+      deviceSettings = {
+        ...deviceSettings,
+        brightness: brightness ? parseInt(brightness) : deviceSettings.brightness,
+      };
+    }
+  });
+
+  onMount(() => {
+    if (typeof localStorage !== "undefined") {
+      const attack = localStorage.getItem("sound_attackTime");
+      const release = localStorage.getItem("sound_releaseTime");
+      const volume = localStorage.getItem("sound_volume");
+      const waveform = localStorage.getItem("sound_waveform");
+      soundSettings = {
+        ...soundSettings,
+        attackTime: attack ? parseInt(attack) : soundSettings.attackTime,
+        releaseTime: release ? parseInt(release) : soundSettings.releaseTime,
+        volume: volume ? parseInt(volume) : soundSettings.volume,
+        waveform: waveform ? waveform as OscillatorType : soundSettings.waveform,
+      };
+    }
+  });
+
+  // Initialize MIDI access and devices
+  onMount(() => {
+    initializeMIDIAccess();
+  });
 </script>
 
 <div class="App" data-theme={theme}>
@@ -418,7 +474,7 @@
     <h3>Sound Generator</h3>
     <SoundGenerator
       settings={soundSettings}
-      onSettingsChange={(settings) => { soundSettings = settings; }}
+      onSettingsChange={setSoundSettings}
       />
     </div>
   {/if}
@@ -491,6 +547,19 @@
             />
             Light up any occurrence of the note in any octave
           </label>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 200px;">
+          <label for="brightness">Button Brightness</label>
+          <input
+            type="range"
+            id="brightness"
+            min="0"
+            max="127"
+            step="1"
+            value={deviceSettings.brightness}
+            on:input={(e) => setBrightness(parseInt((e.target as HTMLInputElement).value))}
+          />
+          <span style="margin-left: 8px;">{deviceSettings.brightness}</span>
         </div>
       </div>
       <button
@@ -576,25 +645,6 @@
     flex-direction: row;
     gap: 20px;
     margin-bottom: 15px;
-  }
-
-  .device-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    justify-content: flex-end;
-  }
-
-  .device-group label {
-    font-weight: bold;
-    color: var(--text-color);
-  }
-  .device-selector {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    margin-bottom: 15px;
     align-items: flex-end; /* This aligns all children at the bottom */
   }
 
@@ -603,15 +653,6 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-  }
-
-  .device-group select {
-    flex: 1;
-    padding: 8px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: var(--select-bg);
-    color: var(--text-color);
   }
 
   .launchpad-layout-tooltip {

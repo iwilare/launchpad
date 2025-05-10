@@ -1,8 +1,8 @@
 import { isBlackNote, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
 
-export interface SoundSettings {
-    volume: number;
-    waveform: OscillatorType;
+export interface DeviceSettings {
+    programmerMode: boolean;
+    brightness: number;
 }
 
 export interface ColorSettings {

@@ -1,12 +1,20 @@
 <script lang="ts">
-    import type { SoundSettings } from "../types/ui";
+  import type { SoundSettings } from "../types/sound";
 
   export let settings: SoundSettings;
   export let onSettingsChange: (settings: SoundSettings) => void;
+
+  // Handle input changes with validation
+  function handleTimeChange(value: string, property: 'attackTime' | 'releaseTime') {
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 0) {
+      onSettingsChange({ ...settings, [property]: numValue });
+    }
+  }
 </script>
 
 <div class="sound-generator">
-  <div class="control-row">
+  <div class="control-grid">
     <div class="sound-control-group">
       <label for="waveform">Waveform</label>
       <select
@@ -35,7 +43,39 @@
       />
       <span class="value-display">{Math.round(settings.volume * 100)}%</span>
     </div>
+    <!-- advanced controls -->
   </div>
+  <details class="advanced-controls">
+    <summary>Advanced controls</summary>
+    <div class="control-grid">
+      <div class="sound-control-group">
+        <label for="attack">Attack Time (ms)</label>
+          <input
+          type="number"
+          id="attack"
+          name="attack"
+          min="0"
+          max="2000"
+          step="1"
+          value={settings.attackTime}
+          on:input={(e) => handleTimeChange((e.target as HTMLInputElement).value, 'attackTime')}
+        />
+      </div>
+      <div class="sound-control-group">
+        <label for="release">Release Time (ms)</label>
+        <input
+          type="number"
+          id="release"
+          name="release"
+          min="0"
+          max="2000"
+          step="1"
+          value={settings.releaseTime}
+          on:input={(e) => handleTimeChange((e.target as HTMLInputElement).value, 'releaseTime')}
+        />
+      </div>
+    </div>
+  </details>
 </div>
 
 <style>
@@ -47,45 +87,19 @@
     box-shadow: 0 2px 4px var(--shadow-color);
   }
 
-  .control-row {
-    display: flex;
-    flex-wrap: wrap;
+  .control-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 20px;
   }
 
   .sound-control-group {
-    flex: 1;
-    align-items: center;
-    justify-content: center;
-    min-width: 200px;
-  }
-
-  .sound-control-group label {
-    display: block;
-    margin-bottom: 8px;
-    font-weight: bold;
-    color: var(--text-color);
-  }
-
-  .sound-control-group select {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    background-color: var(--select-bg);
-    color: var(--text-color);
-    font-size: 14px;
-  }
-
-  .sound-control-group input[type="range"] {
-    width: 100%;
-    margin-bottom: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .value-display {
-    display: inline-block;
-    min-width: 40px;
-    text-align: right;
     font-size: 14px;
     color: var(--launchpad-layout-tooltip);
   }

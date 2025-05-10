@@ -1,7 +1,7 @@
 <script lang="ts">
   import { writable } from 'svelte/store';
   import type { Note, LaunchpadColor, NoteMap, NoteColor } from '../types/notes';
-  import { isBlackNote, GRID_LAYOUT } from '../types/notes';
+  import { isBlackNote, GRID_LAYOUT, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP } from '../types/notes';
   import NoteInput from './NoteInput.svelte';
 
   export let onUpdateMapping: (newNoteMap: NoteMap) => void;
@@ -20,13 +20,21 @@
           (colIndex * $horizontalStep) + // Horizontal movement
           (rowIndex * $verticalStep)     // Vertical movement
         ) as Note;
-        noteMap.set(source, {
-          target: target,
-          color: getNoteColor(target)
-        });
+        noteMap.set(source, { target: target, color: getNoteColor(target) });
       });
     });
 
+    onUpdateMapping(noteMap);
+  }
+
+  function generateFromDeltaMap(deltaMap: number[][]) {
+    const noteMap: NoteMap = new Map();
+    GRID_LAYOUT.forEach((row, rowIndex) => {
+      row.forEach((source, colIndex) => {
+        const target = ($startNote + deltaMap[rowIndex][colIndex]) as Note;
+        noteMap.set(source, { target: target, color: getNoteColor(target) });
+      });
+    });
     onUpdateMapping(noteMap);
   }
 </script>
@@ -71,6 +79,17 @@
       </button>
     </div>
   </div>
+  <details>
+    <summary class="advanced-label">Advanced controls</summary>
+    <div class="panel-element">
+      <button on:click={() => { generateFromDeltaMap(DEFAULT_DELTA_MAP) }} class="action">
+        All diatonics
+      </button>
+      <button on:click={() => { generateFromDeltaMap(EXTRA_DELTA_MAP) }} class="action">
+        Two-layer diatonics
+      </button>
+    </div>
+  </details>
 </div>
 
 <style>
@@ -81,4 +100,7 @@
     gap: 8px;
   }
 
+  .advanced-label {
+    margin-top: 5px;
+  }
 </style> 

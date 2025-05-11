@@ -1,6 +1,6 @@
 import type { Note } from "./notes";
 
-export const ENVELOPE_MULTIPLIER = 0.2;
+export const VOLUME_MULTIPLIER = 0.15;
 
 export const EXPONENTIAL_VALUE = 0.001;
 
@@ -35,7 +35,7 @@ export function releaseNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: n
             ss.activeNotes.set(note, { ...n, number: n.number - 1 });
         } else {
             const currentTime = ss.audioContext!.currentTime;
-            n.gainNode.gain.setValueAtTime(n.gainNode.gain.value, currentTime);
+            n.gainNode.gain.setValueAtTime(Math.max(EXPONENTIAL_VALUE, n.gainNode.gain.value), currentTime);
             n.gainNode.gain.exponentialRampToValueAtTime(EXPONENTIAL_VALUE, currentTime + sc.releaseTime / 1000);
             n.oscillator.stop(currentTime + sc.releaseTime / 1000);
             ss.activeNotes.delete(note);
@@ -63,7 +63,7 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
         
         gainNode.gain.setValueAtTime(EXPONENTIAL_VALUE, ss.audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(
-            Math.min(EXPONENTIAL_VALUE, velocity * sc.volume * ENVELOPE_MULTIPLIER), 
+            Math.max(EXPONENTIAL_VALUE, velocity * sc.volume * VOLUME_MULTIPLIER), 
             ss.audioContext.currentTime + sc.attackTime / 1000
         );
         oscillator.connect(gainNode);

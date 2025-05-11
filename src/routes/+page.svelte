@@ -35,10 +35,10 @@
   let theme: "light" | "dark" = "dark";
   let colorSettings: ColorSettings = {
     singleColor: true,
-    whiteRest: 0x4e,
-    whitePressed: 0x15,
-    blackRest: 0x5f,
-    blackPressed: 0x15,
+    whiteRest: 0x00,
+    whitePressed: 0x25,
+    blackRest: 0x03,
+    blackPressed: 0x24,
   };
 
   let soundSettings: SoundSettings = {
@@ -182,7 +182,6 @@
     if (selectedColorDevice) {
       return sendMIDIPacket(selectedColorDevice, [0x90, key, color]);
     } else {
-      console.error("No selected color device");
       return null;
     }
   }
@@ -309,11 +308,20 @@
     console.log(description);
   }
 
+  function sendBrightness() {
+    if (selectedColorDevice) {
+      return sendMIDIPacket(selectedColorDevice, [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x08, deviceSettings.brightness, 0xF7]);
+    } else {
+      return "No selected color device";
+    }
+  }
+
   function sendAllKeyboardColors() {
     console.log("Sending all keyboard colors");
     noteMap.forEach((_, note) => {
       controllerChangeColor(note, false);
     });
+    sendBrightness();
   }
 
   function setNoteMap(newNoteMap: NoteMap) {
@@ -324,16 +332,12 @@
   }
 
   // Function to update brightness, persist, and send MIDI
-  function setBrightness(brightness: number) : string | null{
+  function setBrightness(brightness: number) : string | null {
     deviceSettings = { ...deviceSettings, brightness };
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("sound_brightness", brightness.toString());
     }
-    if (selectedColorDevice) {
-      return sendMIDIPacket(selectedColorDevice, [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x08, brightness, 0xF7]);
-    } else {
-      return "No selected color device";
-    }
+    return sendBrightness();
   }
 
   function setSoundSettings(settings: SoundSettings) {
@@ -376,7 +380,7 @@
       const brightness = localStorage.getItem("sound_brightness");
       deviceSettings = {
         ...deviceSettings,
-        brightness: brightness ? parseInt(brightness) : deviceSettings.brightness,
+        brightness: typeof brightness === 'string' ? parseInt(brightness) : deviceSettings.brightness,
       };
     }
   });
@@ -389,10 +393,10 @@
       const waveform = localStorage.getItem("sound_waveform");
       soundSettings = {
         ...soundSettings,
-        attackTime: attack ? parseInt(attack) : soundSettings.attackTime,
-        releaseTime: release ? parseInt(release) : soundSettings.releaseTime,
-        volume: volume ? parseInt(volume) : soundSettings.volume,
-        waveform: waveform ? waveform as OscillatorType : soundSettings.waveform,
+        attackTime: typeof attack === 'string' ? parseInt(attack) : soundSettings.attackTime,
+        releaseTime: typeof release === 'string' ? parseInt(release) : soundSettings.releaseTime,
+        volume: typeof volume === 'string' ? parseFloat(volume) : soundSettings.volume,
+        waveform: typeof waveform === 'string' ? waveform as OscillatorType : soundSettings.waveform,
       };
     }
   });
@@ -465,7 +469,7 @@
     </div>
 
     {#if inputDevices.length === 0 && outputDevices.length === 0}
-      <p>No MIDI devices detected. Connect a device and click Refresh.</p>
+      <p class="no-devices-detected">No MIDI devices detected. Connect a device and click Refresh.</p>
     {/if}
   </div>
 
@@ -599,23 +603,24 @@
     background-color: var(--card-bg);
     padding: 15px;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: calc(8px + 1.5vmin);
-    color: var(--text-color);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     position: relative;
-    transition:
-      background-color var(--transition-speed),
-      color var(--transition-speed);
     min-height: 60px;
+    border-radius: 0px 0px 5px 5px;
+    border: 1px solid var(--border-color);
+    border-top: none;
     margin-bottom: 20px;
-    background: linear-gradient(
-      135deg,
-      var(--card-bg) 0%,
-      var(--section-bg) 100%
-    );
+  }
+
+  .section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--section-bg);
+    color: var(--text-color);
   }
 
   h1 {
@@ -629,15 +634,6 @@
   h3 {
     margin-top: 0;
     margin-bottom: 15px;
-  }
-
-  .section {
-    margin-bottom: 30px;
-    padding: 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    background-color: var(--section-bg);
-    color: var(--text-color);
   }
 
   .device-selector {
@@ -688,5 +684,10 @@
     align-items: center;
     justify-content: center;
     gap: 32px;
+  }
+
+  .no-devices-detected {
+    color: var(--text-color);
+    margin-bottom: 0px;
   }
 </style>

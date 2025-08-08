@@ -1,5 +1,5 @@
 import { NoteNameList, type Note, type NoteRepr, NoteName, isBlackNote, stringToNoteName, noteReprToNote, noteToNoteRepr } from "./notes";
-import type { SaxKey, allMainKeys, COMBOS_IN_ORDER, saxPressedKeysToNote } from "./saxophone";
+import type { SaxKey, allMainKeys, saxPressedKeysToNote } from "./saxophone";
 
 // The Launchpad key numbers
 export type Key = number;
@@ -126,6 +126,11 @@ export function niceNoteMapParse(value: string): NiceNoteMap | string {
       const rest: LaunchpadColor = (entry as any).r ?? DEFAULT_COLOR;
       const pressed: LaunchpadColor = (entry as any).p ?? DEFAULT_COLOR;
 
+      // Accept legacy 'empty' entries by ignoring them (unmapped key)
+      if ((entry as any).type === 'empty') {
+        continue;
+      }
+
       if ('n' in (entry as any) || 'o' in (entry as any)) {
         const name = (entry as any).n;
         const octave = (entry as any).o;
@@ -163,7 +168,7 @@ export function niceNoteMapParse(value: string): NiceNoteMap | string {
         continue;
       }
 
-      return 'Invalid mapping entry: must include either note ("n" and "o"), bend ("b"), timbre ("w"), or saxophone ("s") fields';
+  return 'Invalid mapping entry: must include either note ("n" and "o"), bend ("b"), timbre ("w"), or saxophone ("s") fields';
     }
 
     return result;
@@ -181,6 +186,8 @@ export function niceNoteMapToNoteMap(m: NiceNoteMap): NoteMap | string {
     if (mapping.k === undefined) {
       return 'Invalid mapping: missing key ("k")';
     }
+
+  // Legacy 'empty' entries are ignored (key remains unmapped)
 
     if (mapping.type === 'note') {
       const noteName = stringToNoteName(mapping.n);
@@ -227,7 +234,7 @@ export function niceNoteMapToNoteMap(m: NiceNoteMap): NoteMap | string {
       continue;
     }
 
-    return 'Invalid mapping entry: must include either note ("n" and "o"), bend ("b"), timbre ("w"), or saxophone ("s") fields';
+  return 'Invalid mapping entry: must include either note ("n" and "o"), bend ("b"), timbre ("w"), or saxophone ("s") fields';
   }
   return newNoteMap;
 }
@@ -266,15 +273,15 @@ export function noteMapToNiceNoteMapFormat(noteMap: NoteMap): string {
           return `  { "k": ${sourceKey}, "type": "pitch", "b": ${mapping.bend}, "r": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
         case 'timbre':
           return `  { "k": ${sourceKey}, "type": "timbre", "w": "${mapping.waveform}", "r": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
-        case 'sax':
+    case 'sax':
           return `  { "k": ${sourceKey}, "type": "sax", "s": "${mapping.saxKey}", "r": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
         default: {
           const m = mapping as { color: MappingColor };
           return `  { "k": ${sourceKey}, "type": "unknown", "r": ${m.color.rest}, "p": ${m.color.pressed} }`;
         }
       }
-    })
-    .join(',\n')}\n]`;
+  })
+  .join(',\n')}\n]`;
 }
 
 
@@ -405,10 +412,12 @@ export function colorFromSettings(settings: ColorSettings, note: Note | null): M
 }
 
 export function applyColorsToMap(settings: ColorSettings, noteMap: NoteMap): NoteMap {
-    const newNoteMap: NoteMap = new Map();
-    noteMap.forEach((mapping, note) => {
-        newNoteMap.set(note, { ...mapping,
-            color: colorFromSettings(settings, 'target' in mapping ? mapping.target : null) });
+  const newNoteMap: NoteMap = new Map();
+  noteMap.forEach((mapping, note) => {
+    newNoteMap.set(note, {
+      ...mapping,
+      color: colorFromSettings(settings, 'target' in mapping ? mapping.target : null),
     });
-    return newNoteMap;
+  });
+  return newNoteMap;
 }

@@ -7,11 +7,13 @@
   import DefaultColorsSettings from "$lib/DefaultColorsSettings.svelte";
   import ThemeToggle from "$lib/ThemeToggle.svelte";
   import GridKeyboard from "$lib/GridKeyboard.svelte";
-  import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
+  import LayoutGenerator from "$lib/LayoutGenerator.svelte";
+  import LayoutManager from "$lib/LayoutManager.svelte";
+  import { GRID_LAYOUT, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP } from '../types/ui';
   import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
     DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type LaunchpadColor,
     type Controller, niceNoteMapToNoteMap,
-    niceNoteMap} from "../types/ui";
+    niceNoteMap, generateSaxophoneLayoutMap } from "../types/ui";
   import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import type { Note } from "../types/notes";
@@ -330,8 +332,12 @@
     ) {
       stopKey(note);
       description = `Note Off: ${noteToString(note)} (${note}), Velocity: ${velocity}, Channel: ${channel + 1}`;
-    } else if (messageType === 0xb0) {
-      description = `Control Change: Controller: ${note}, Value: ${velocity}, Channel: ${channel + 1}`;
+    } else if (messageType === 0xb0 && velocity > 0) {
+      description = `Control Change On: Controller: ${note}, Value: ${velocity}, Channel: ${channel + 1}`;
+      playKey(note, velocity);
+    } else if (messageType === 0xb0 && velocity === 0) {
+      description = `Control Change Off: Controller: ${note}, Value: ${velocity}, Channel: ${channel + 1}`;
+      stopKey(note);
     } else if (messageType === 0xc0) {
       description = `Program Change: Program: ${note}, Channel: ${channel + 1}`;
     } else if (messageType === 0xe0) {
@@ -512,6 +518,21 @@
           {/each}
         </select>
       </div>
+      <div class="device-group">
+        <label for="brightness">Button Brightness</label>
+        <div class="device-brightness">
+          <input
+            type="range"
+            id="brightness"
+            min="0"
+            max="127"
+            step="1"
+            value={deviceSettings.brightness}
+            on:input={(e) => setBrightness(parseInt((e.target as HTMLInputElement).value))}
+          />
+          <span class="brightness-value">{deviceSettings.brightness}</span>
+        </div>
+      </div>
       <div class="device-controls">
         <button on:click={() => initializeMIDIAccess()} class="action"
           >Refresh access</button
@@ -535,11 +556,14 @@
   {/if}
 
   <div class="section">
-    <h3>Isomorphic Keyboard Layout</h3>
-    <IsomorphicKeyboardGenerator
+    <h3>Layouts</h3>
+    <LayoutGenerator
       onUpdateMapping={setNoteMap}
       getNoteColor={(note) => colorFromSettings(colorSettings, note)}
     />
+    <div style="margin-top: 10px; text-align: left;">
+      <LayoutManager {noteMap} onRestoreMap={setNoteMap} />
+    </div>
   </div>
 
   <div class="section">
@@ -558,20 +582,18 @@
   </div>
 
   <div class="section">
-    <h3>Default colors</h3>
-    <DefaultColorsSettings
-      {colorSettings}
-      onColorSettingsChange={(settings) => {
-        colorSettings = settings;
-        setNoteMap(applyColorsToMap(settings, noteMap));
-      }}
-    />
-  </div>
-
-  <div class="section">
     <div class="mapping-container">
       <h3>Settings</h3>
       <div class="settings-controls">
+        <div style="display: flex; flex-direction: column; align-items: flex-start;">
+          <DefaultColorsSettings
+            {colorSettings}
+            onColorSettingsChange={(settings) => {
+              colorSettings = settings;
+              setNoteMap(applyColorsToMap(settings, noteMap));
+            }}
+          />
+        </div>
         <div
           style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;"
         >
@@ -603,19 +625,6 @@
             Light up any occurrence of the note in any octave
           </label>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-start; min-width: 200px;">
-          <label for="brightness">Button Brightness</label>
-          <input
-            type="range"
-            id="brightness"
-            min="0"
-            max="127"
-            step="1"
-            value={deviceSettings.brightness}
-            on:input={(e) => setBrightness(parseInt((e.target as HTMLInputElement).value))}
-          />
-          <span style="margin-left: 8px;">{deviceSettings.brightness}</span>
-        </div>
       </div>
       <button
         on:click={sendAllKeyboardColors}
@@ -629,7 +638,7 @@
     <MIDINoteMap {noteMap} onUpdateMap={setNoteMap} />
     <button
       style="margin-top: 10px;"
-      on:click={() => setNoteMap(DEFAULT_MAPPINGS)}
+  on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))}
       class="action">Reset Keyboard Layout</button
     >
   </div>
@@ -700,6 +709,17 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
+  }
+
+  .device-brightness {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .brightness-value {
+    min-width: 32px;
+    text-align: right;
   }
 
   .launchpad-layout-tooltip {

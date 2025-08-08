@@ -1,29 +1,59 @@
 <script lang="ts">
   import type { Note } from '../types/notes';
   import { noteToString, isBlackNote } from '../types/notes';
-  import type { NoteMap, NoteMapping } from '../types/ui';
+  import type { NoteMapping } from '../types/ui';
   import type { SaxKey } from '../types/saxophone';
+  import { allMainKeys } from '../types/saxophone';
   import ColorButton from './ColorButton.svelte';
   import NoteInput from './NoteInput.svelte';
 
   export let key: Note;
-  export let mapping: NoteMapping;
-  export let onChange: (mapping: NoteMapping) => void;
+  export let mapping: NoteMapping | undefined;
+  export let onChange: (mapping: NoteMapping | undefined) => void;
 
   // Helper function to determine if this should use black key styling
-  function shouldUseBlackKeyStyling(mapping: NoteMapping): boolean {
-    return mapping.type === 'note' && isBlackNote(mapping.target);
+  function shouldUseBlackKeyStyling(mapping?: NoteMapping): boolean {
+    return !!mapping && mapping.type === 'note' && isBlackNote(mapping.target);
+  }
+
+  function handleTypeChange(newType: 'note' | 'pitch' | 'timbre' | 'sax' | 'none') {
+    if (newType === 'none') { onChange(undefined); return; }
+    const commonColor = mapping ? mapping.color : { rest: 0x00, pressed: 0x25 };
+    if (mapping && newType === mapping.type) return;
+    if (newType === 'note') {
+      const target = (mapping && mapping.type === 'note' ? mapping.target : 60) as Note;
+      onChange({ type: 'note', target, color: commonColor });
+    } else if (newType === 'pitch') {
+      onChange({ type: 'pitch', bend: 0, color: commonColor });
+    } else if (newType === 'timbre') {
+      onChange({ type: 'timbre', waveform: 'sine', color: commonColor });
+    } else if (newType === 'sax') {
+      const def: SaxKey = allMainKeys[0];
+      onChange({ type: 'sax', saxKey: def, color: commonColor });
+    }
   }
 </script>
 
 <tr class={shouldUseBlackKeyStyling(mapping) ? 'black-key' : ''}>
   <td>{key}</td>
   <td>
-    <div class="type-badge type-{mapping.type}">{mapping.type}</div>
+    <select
+      class="type-select"
+      value={mapping ? mapping.type : 'none'}
+      on:change={(e) => handleTypeChange(e.currentTarget.value as any)}
+    >
+      <option value="none">none</option>
+      <option value="note">note</option>
+      <option value="pitch">pitch</option>
+      <option value="timbre">timbre</option>
+      <option value="sax">sax</option>
+    </select>
   </td>
   <td>
     <div class="input-container">
-      {#if mapping.type === 'note'}
+      {#if !mapping}
+        <span style="opacity: 0.7; font-size: 12px;">—</span>
+      {:else if mapping.type === 'note'}
         <NoteInput
           id={key.toString()}
           data={mapping.target}
@@ -49,31 +79,37 @@
           <option value="triangle">Triangle</option>
         </select>
       {:else if mapping.type === 'sax'}
-        <input
-          type="text"
+        <select
           value={mapping.saxKey}
-          on:input={(e) => onChange({ ...mapping, saxKey: e.currentTarget.value as SaxKey })}
-          placeholder="Sax key"
+          on:change={(e) => onChange({ ...mapping, saxKey: e.currentTarget.value as SaxKey })}
+        >
+          {#each allMainKeys as k}
+            <option value={k}>{k}</option>
+          {/each}
+        </select>
+      {/if}
+    </div>
+  </td>
+  <td>
+    <div class="button-container">
+      {#if mapping}
+        <ColorButton
+          value={mapping.color.rest}
+          index={key}
+          onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, rest: value } })}
         />
       {/if}
     </div>
   </td>
   <td>
     <div class="button-container">
-      <ColorButton
-        value={mapping.color.rest}
-        index={key}
-        onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, rest: value } })}
-      />
-    </div>
-  </td>
-  <td>
-    <div class="button-container">
-      <ColorButton
-        value={mapping.color.pressed}
-        index={key}
-        onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, pressed: value } })}
-      />
+      {#if mapping}
+        <ColorButton
+          value={mapping.color.pressed}
+          index={key}
+          onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, pressed: value } })}
+        />
+      {/if}
     </div>
   </td>
 </tr>
@@ -97,30 +133,14 @@
     padding: 3px 20px 3px 20px;
   }
 
-  .type-badge {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 10px;
-    font-weight: bold;
-    text-transform: uppercase;
-    color: white;
-  }
-
-  .type-note {
-    background-color: #4CAF50;
-  }
-
-  .type-pitch {
-    background-color: #2196F3;
-  }
-
-  .type-timbre {
-    background-color: #FF9800;
-  }
-
-  .type-sax {
-    background-color: #9C27B0;
+  .type-select {
+    padding: 4px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+    font-size: 12px;
+    text-transform: lowercase;
   }
 
   .input-container,
@@ -133,7 +153,6 @@
   }
 
   input[type="number"],
-  input[type="text"],
   select {
     padding: 4px 8px;
     border: 1px solid var(--border-color);
@@ -145,7 +164,6 @@
   }
 
   input[type="number"]:focus,
-  input[type="text"]:focus,
   select:focus {
     outline: none;
     border-color: var(--accent-color);

@@ -10,13 +10,14 @@
   import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
   import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
     DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type LaunchpadColor,
-    type Controller, niceNoteMapToNoteMap } from "../types/ui";
+    type Controller, niceNoteMapToNoteMap,
+    niceNoteMap} from "../types/ui";
   import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
-  import { noteToString, areSameNote } from "../types/notes";
-  import type { SaxKey } from "../types/saxophone";
+  import { noteToString, areSameNote, noteReprToNote } from "../types/notes";
+  import { saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
 
   let midiAccess: MIDIAccess | null = null;
   let selectedInputDevice: string | null = null;
@@ -28,7 +29,10 @@
   let showSameNotePressed: ShowSameNote = "yes";
   let noteMap: NoteMap = DEFAULT_MAPPINGS;
 
-  let saxNotes: Set<SaxKey> = new SvelteSet();
+  let saxNotes: Map<SaxKey, number> = new SvelteMap();
+  let currentSaxNote: number | null = null;
+  let currentSaxVelocity: number = 127;
+
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = new SvelteMap();
   let soundState: SoundState = emptySoundState();
@@ -271,8 +275,13 @@
       } else if(map.type == 'sax') {
         controller.set(key, { ...k, active: true });
         handleNoteColor(key, true);
-        increaseNoteMut(activeNotes, map.saxKey as Note);
-        pressNoteAudio(map.saxKey as Note, velocity);
+        increaseNoteMut(saxNotes, map.saxKey);
+        const n = saxPressedKeysToNote(saxNotes);
+        if(currentSaxNote !== null)
+          releaseNoteAudio(currentSaxNote);
+        if(n !== null) {
+          pressNoteAudio(n, currentSaxVelocity);
+        }
       }
     }
   }
@@ -288,7 +297,15 @@
         decreaseNoteMut(activeNotes, map.target);
         releaseNoteAudio(map.target);
       } else if(map.type == 'sax') {
-
+        controller.set(key, { ...k, active: false });
+        handleNoteColor(key, false);
+        decreaseNoteMut(saxNotes, map.saxKey);
+        const n = saxPressedKeysToNote(saxNotes);
+        if(currentSaxNote !== null)
+          releaseNoteAudio(currentSaxNote);
+        if(n !== null) {
+          pressNoteAudio(n, currentSaxVelocity);
+        }
       }
   }
 
@@ -402,7 +419,7 @@
   onMount(() => {
     const savedNoteMap = localStorage.getItem("noteMap");
     if (savedNoteMap) {
-      const maybeMap = niceNoteMapToNoteMap(savedNoteMap);
+      const maybeMap = niceNoteMap(savedNoteMap);
       if (typeof maybeMap !== "string") {
         noteMap = maybeMap;
       }

@@ -367,11 +367,11 @@ export type ShowSameNote = "no" | "yes" | "octave";
 
 export type NoteState = Map<Note, number> // number of times the note is being pressed
 
-export const increaseNoteMut = (noteState: NoteState, note: number) => {
+export const increaseNoteMut = <K>(noteState: Map<K, number>, note: K) => {
     noteState.set(note, (noteState.get(note) ?? 0) + 1);
 };
 
-export const decreaseNoteMut = (noteState: NoteState, note: number) => {
+export const decreaseNoteMut = <K>(noteState: Map<K, number>, note: K) => {
     const v = noteState.get(note);
     if (v === undefined)
         return;
@@ -381,12 +381,12 @@ export const decreaseNoteMut = (noteState: NoteState, note: number) => {
         noteState.set(note, v - 1);
 };
 
-export const isActiveNote = (noteState: NoteState, note: number) => {
+export const isActiveNote = <K>(noteState: Map<K, number>, note: K) => {
     const v = noteState.get(note);
     return v !== undefined && v > 0;
 };
 
-export const isLastNote = (noteState: NoteState, note: number) => {
+export const isLastNote = <K>(noteState: Map<K, number>, note: K) => {
     const v = noteState.get(note);
     return v !== undefined && v == 1;
 };

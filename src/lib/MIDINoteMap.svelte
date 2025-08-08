@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { NoteMapping, LaunchpadColor, NoteMap, Note } from '../types/notes';
-  import { noteToNoteRepr, isBlackNote, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat } from '../types/notes';
+  import type { Note } from '../types/notes';
+  import { noteToNoteRepr, isBlackNote } from '../types/notes';
+  import type { NoteMapping, LaunchpadColor, NoteMap } from '../types/ui';
+  import { niceNoteMap, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat } from '../types/ui';
   import MIDINoteMapRow from './MIDINoteMapRow.svelte';
 
   export let noteMap: NoteMap;
@@ -23,7 +25,7 @@
   }
 
   function handleJsonChange(value: string) {
-    const result = niceNoteMapToNoteMap(value);
+    const result = niceNoteMap(value);
     if (typeof result === 'string') {
       jsonError = result;
     } else {
@@ -161,4 +163,4 @@
     color: var(--error-color);
     border-radius: 4px;
   }
-</style> 
+</style>

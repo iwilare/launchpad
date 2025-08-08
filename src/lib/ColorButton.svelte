@@ -1,7 +1,7 @@
 <script lang="ts">
   import { launchpadColorToHex, launchpadColorToTextColorHex, launchpadColorToString } from '../types/colors';
   import FloatingColorPicker from './FloatingColorPicker.svelte';
-  import type { LaunchpadColor } from '../types/notes';
+  import type { LaunchpadColor } from '../types/ui';
 
   export let value: LaunchpadColor;
   export let index: number;
@@ -46,4 +46,4 @@
     font-size: 12px;
   }
 
-</style> 
+</style>

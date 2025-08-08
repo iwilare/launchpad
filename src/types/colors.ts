@@ -1,4 +1,4 @@
-import type { LaunchpadColor } from './notes';
+import type { LaunchpadColor } from './ui';
 
 // Launchpad Mini color data - using hexadecimal numbers as keys
 export const LaunchpadColors: Record<LaunchpadColor, string> = {
@@ -141,15 +141,15 @@ export const launchpadColorToHex = (colorCode: LaunchpadColor): string => {
 export const launchpadColorToTextColorHex = (colorCode: LaunchpadColor): string => {
   const hex = LaunchpadColors[colorCode];
   if (!hex) return '#ffffff';
-  
+
   // Parse hex color
   const r = parseInt(hex.slice(1, 3), 16) / 255;
   const g = parseInt(hex.slice(3, 5), 16) / 255;
   const b = parseInt(hex.slice(5, 7), 16) / 255;
-  
+
   // Calculate relative luminance
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  
+
   return luminance > 0.5 ? '#000000' : '#ffffff';
 };
 

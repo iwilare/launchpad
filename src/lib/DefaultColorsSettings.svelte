@@ -1,5 +1,5 @@
 <script context="module" lang="ts">
-  import type { LaunchpadColor, NoteMap } from '../types/notes';
+  import type { LaunchpadColor, NoteMap } from '../types/ui';
   import { isBlackNote } from '../types/notes';
   import { colorFromSettings, type ColorSettings } from '../types/ui';
 </script>
@@ -40,7 +40,7 @@
               />
             </td>
           </tr>
-          <tr>  
+          <tr>
             <td>Pressed</td>
             <td>
               <ColorButton

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { LaunchpadColors, launchpadColorToTextColorHex, getHexCode, getHue, isGray } from "../types/colors";
-  import type { LaunchpadColor } from "../types/notes";
+  import type { LaunchpadColor } from "../types/ui";
 
   export let value: LaunchpadColor;
   export let onChange: (color: LaunchpadColor) => void;
@@ -44,7 +44,7 @@
 </script>
 
 <div bind:this={pickerRef} class="floating-color-picker">
-  <div class="inner"> 
+  <div class="inner">
       <input
       type="text"
       placeholder="Search colors..."

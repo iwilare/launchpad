@@ -1,8 +1,9 @@
 <script lang="ts">
   import { launchpadColorToHex, launchpadColorToTextColorHex as getColorHex, launchpadColorToTextColorHex } from '../types/colors';
-  import { type Note, type NoteMap, GRID_LAYOUT, DEFAULT_COLOR as DEFAULT_LAUNCHPAD_COLOR, type Controller } from '../types/notes';
+  import { type Note } from '../types/notes';
+  import { type NoteMap, GRID_LAYOUT, DEFAULT_COLOR as DEFAULT_LAUNCHPAD_COLOR, type Controller } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
-  
+
   export let controller: Controller;
   export let noteMap: NoteMap;
 
@@ -19,7 +20,7 @@
       if ('target' in mapping) {
         newNoteMap.set(src, { ...mapping, target: newNote });
       } else {
-        newNoteMap.set(src, { target: newNote, color: mapping.color });
+        newNoteMap.set(src, { type: 'note', target: newNote, color: mapping.color });
       }
       setNoteMap(newNoteMap);
     }
@@ -68,7 +69,7 @@
         </div>
         {/key}
       {/each}
-    </div> 
+    </div>
     <!-- {#if colorPickerCell}
       <div class="color-picker-cell">
         <div class="color-picker-cell-content">
@@ -87,7 +88,7 @@
         </div>
       </div>
     {/if} -->
-  </div> 
+  </div>
 </div>
 
 <style>
@@ -166,4 +167,4 @@
     justify-content: center;
     gap: 4px;
   }
-</style> 
+</style>

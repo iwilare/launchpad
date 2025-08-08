@@ -1,11 +1,13 @@
 <script lang="ts">
   import { writable } from 'svelte/store';
-  import type { Note, LaunchpadColor, NoteMap, NoteColor } from '../types/notes';
-  import { isBlackNote, GRID_LAYOUT, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP } from '../types/notes';
+  import type { Note } from '../types/notes';
+  import { isBlackNote } from '../types/notes';
+  import type { LaunchpadColor, NoteMap, MappingColor } from '../types/ui';
+  import { GRID_LAYOUT, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
 
   export let onUpdateMapping: (newNoteMap: NoteMap) => void;
-  export let getNoteColor: (note: Note) => NoteColor;
+  export let getNoteColor: (note: Note) => MappingColor;
 
   let startNote = writable<Note>(39); // D#2
   let horizontalStep = writable<number>(2); // Wicky-Hayden
@@ -13,14 +15,14 @@
 
   function generateIsomorphicLayout() {
     const noteMap: NoteMap = new Map();
-    
+
     GRID_LAYOUT.forEach((row, rowIndex) => {
       row.forEach((source, colIndex) => {
-        const target = ($startNote + 
+        const target = ($startNote +
           (colIndex * $horizontalStep) + // Horizontal movement
           (rowIndex * $verticalStep)     // Vertical movement
         ) as Note;
-        noteMap.set(source, { target: target, color: getNoteColor(target) });
+        noteMap.set(source, { type: 'note', target: target, color: getNoteColor(target) });
       });
     });
 
@@ -32,7 +34,7 @@
     GRID_LAYOUT.forEach((row, rowIndex) => {
       row.forEach((source, colIndex) => {
         const target = ($startNote + deltaMap[rowIndex][colIndex]) as Note;
-        noteMap.set(source, { target: target, color: getNoteColor(target) });
+        noteMap.set(source, { type: 'note', target: target, color: getNoteColor(target) });
       });
     });
     onUpdateMapping(noteMap);
@@ -43,9 +45,9 @@
   <div style="display: flex; align-items: center; gap: 20px; justify-content: space-around;">
     <div class="panel-element">
       <label for="start-note">Start Note:</label>
-      <NoteInput 
-        id="start-note" 
-        data={$startNote} 
+      <NoteInput
+        id="start-note"
+        data={$startNote}
         onChange={(v: Note) => {
           $startNote = v
           generateIsomorphicLayout()
@@ -103,4 +105,4 @@
   .advanced-label {
     margin-top: 5px;
   }
-</style> 
+</style>

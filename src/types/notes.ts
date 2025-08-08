@@ -46,72 +46,211 @@ export interface NoteRepr {
 export type LaunchpadColor = number;
 
 export const DEFAULT_COLOR = 0x00;
+export const DEFAULT_WHITE_REST: LaunchpadColor = 0x00;
+export const DEFAULT_WHITE_PRESSED: LaunchpadColor = 0x25;
+export const DEFAULT_BLACK_REST: LaunchpadColor = 0x03;
+export const DEFAULT_BLACK_PRESSED: LaunchpadColor = 0x24;
 
 export type Controller = Map<Key, { active: boolean, color: LaunchpadColor }>;
 
 // Interface for a MIDI note mapping
-export interface NoteMapping {
-  target: Note;
-  color: NoteColor;
-}
+export type Action = { type: 'note', note: Note }
 
-export interface NoteColor {
-  rest: LaunchpadColor;
-  pressed: LaunchpadColor;
-}
+export type MappingColor = { rest: LaunchpadColor; pressed: LaunchpadColor };
+export type NoteColor = MappingColor;
+
+export type NoteMapping =
+  | { target: Note; color: MappingColor }
+  | { bend: number; color: MappingColor };
 
 // Map of Launchpad keys to their mappings
 export type NoteMap = Map<Key, NoteMapping>;
 
 // Interface for a MIDI note mapping
-export interface NiceNoteMapping {
-  k: number;
-  n: string;
-  o: number;
-  r: LaunchpadColor;
-  p: LaunchpadColor;
-}
+export type NiceNoteMapping =
+  | { k: number; n: string; o: number; r?: LaunchpadColor; p?: LaunchpadColor }
+  | { k: number;            b: number; r?: LaunchpadColor; p?: LaunchpadColor };
 
 // Map of MIDI notes to their mappings
 export type NiceNoteMap = NiceNoteMapping[];
 
-export function niceNoteMapToNoteMap(value: string): NoteMap | string {
-  const parsedJson = JSON.parse(value);
+export const DEFAULT_START_NOTE: Note = 39; // D#2
+export const DEFAULT_HORIZONTAL_STEP = 2;   // Wicky-Hayden
+export const DEFAULT_VERTICAL_STEP = 5;
 
-  if (!Array.isArray(parsedJson)) {
-    return 'JSON must be an array of mappings';
+export function defaultColorFromNote(note: Note): MappingColor {
+  if (isBlackNote(note)) {
+    return { rest: DEFAULT_BLACK_REST, pressed: DEFAULT_BLACK_PRESSED };
   }
+  return { rest: DEFAULT_WHITE_REST, pressed: DEFAULT_WHITE_PRESSED };
+}
 
-  const newNoteMap: NoteMap = new Map();
-  for (const mapping of parsedJson) {
-    const noteName = stringToNoteName(mapping.n);
-    if (!noteName) {
-      return `Invalid note name: ${mapping.n}`;
-    }
-    newNoteMap.set(mapping.k, {
-      target: noteReprToNote({ name: noteName, octave: mapping.o }),
-      color: {
-        rest: mapping.c,
-        pressed: mapping.p
-      }
+export function generateIsomorphicLayoutMap(
+  startNote: Note,
+  horizontalStep: number,
+  verticalStep: number,
+  colorForNote: (note: Note) => MappingColor,
+): NoteMap {
+  const noteMap: NoteMap = new Map();
+  GRID_LAYOUT.forEach((row, rowIndex) => {
+    row.forEach((source, colIndex) => {
+      const target = (startNote + (colIndex * horizontalStep) + (rowIndex * verticalStep)) as Note;
+      noteMap.set(source, { target, color: colorForNote(target) });
     });
+  });
+  return noteMap;
+}
+
+export const SAX_START_NOTE: Note = 58; // Bb3
+
+export function generateSaxophoneLayoutMap(): NoteMap {
+  // Rough physical arrangement: left-hand stack (upper) and right-hand stack (lower), plus a few palm/side keys
+  // Many cells intentionally unmapped
+  const coords: Array<{ r: number; c: number }> = [
+    // Left hand main stack (top-ish)
+    { r: 7, c: 1 }, // B
+    { r: 6, c: 1 }, // C
+    { r: 5, c: 1 }, // C#
+    { r: 4, c: 1 }, // D
+    { r: 3, c: 1 }, // D#
+    { r: 2, c: 1 }, // E
+    // Right hand main stack (lower)
+    { r: 7, c: 3 }, // F
+    { r: 6, c: 3 }, // F#
+    { r: 5, c: 3 }, // G
+    { r: 4, c: 3 }, // G#
+    { r: 3, c: 3 }, // A
+    { r: 2, c: 3 }, // A#
+    { r: 1, c: 3 }, // B
+    // Palm keys (top row)
+    { r: 8, c: 2 }, // C
+    { r: 8, c: 3 }, // C#
+    { r: 8, c: 4 }, // D
+    // Side keys (right side)
+    { r: 6, c: 6 }, // D# side
+    { r: 5, c: 6 }, // E side
+    { r: 4, c: 6 }, // F side
+  ];
+
+  const map: NoteMap = new Map();
+  let note: Note = SAX_START_NOTE;
+  coords.forEach(({ r, c }) => {
+    if (r >= 0 && r < GRID_LAYOUT.length && c >= 0 && c < GRID_LAYOUT[r].length) {
+      const source = GRID_LAYOUT[r][c];
+      map.set(source, { target: note, color: defaultColorFromNote(note) });
+      note = (note + 1) as Note; // chromatic steps
+    }
+  });
+  return map;
+}
+
+export function niceNoteMapParse(value: string): NiceNoteMap | string {
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) {
+      return 'Invalid JSON: expected an array of mappings';
+    }
+
+    const result: NiceNoteMap = [];
+    for (const entry of parsed) {
+      if (entry === null || typeof entry !== 'object') {
+        return 'Invalid mapping entry: expected an object';
+      }
+      const key = (entry as any).k;
+      if (typeof key !== 'number') {
+        return 'Invalid or missing "k" (key) in mapping entry';
+      }
+
+      const rest: LaunchpadColor = (entry as any).r ?? DEFAULT_COLOR;
+      const pressed: LaunchpadColor = (entry as any).p ?? DEFAULT_COLOR;
+
+      if ('n' in (entry as any) || 'o' in (entry as any)) {
+        const name = (entry as any).n;
+        const octave = (entry as any).o;
+        if (typeof name !== 'string' || typeof octave !== 'number') {
+          return 'Invalid note mapping: expected "n" (string) and "o" (number)';
+        }
+        result.push({ k: key, n: name, o: octave, r: rest, p: pressed });
+        continue;
+      }
+
+      if ('b' in (entry as any)) {
+        const bend = (entry as any).b;
+        if (typeof bend !== 'number') {
+          return 'Invalid bend mapping: expected "b" (number)';
+        }
+        result.push({ k: key, b: bend, r: rest, p: pressed });
+        continue;
+      }
+
+      return 'Invalid mapping entry: must include either note ("n" and "o") or bend ("b") fields';
+    }
+
+    return result;
+  } catch (_err) {
+    return 'Invalid JSON format';
+  }
+}
+
+export function niceNoteMapToNoteMap(m: NiceNoteMap): NoteMap | string {
+  const newNoteMap: NoteMap = new Map();
+  for (const mapping of m) {
+    const pressed = mapping.p !== undefined ? mapping.p : DEFAULT_COLOR;
+    const rest = mapping.r !== undefined ? mapping.r : DEFAULT_COLOR;
+
+    if (mapping.k === undefined) {
+      return 'Invalid mapping: missing key ("k")';
+    }
+
+    if ('n' in mapping && 'o' in mapping) {
+      const noteName = stringToNoteName(mapping.n);
+      if (!noteName) {
+        return `Invalid note name: ${mapping.n}`;
+      }
+      newNoteMap.set(mapping.k, {
+        target: noteReprToNote({ name: noteName, octave: mapping.o }),
+        color: { rest, pressed },
+      });
+      continue;
+    }
+
+    if ('b' in mapping) {
+      newNoteMap.set(mapping.k, {
+        bend: mapping.b,
+        color: { rest, pressed },
+      });
+      continue;
+    }
+
+    return 'Invalid mapping entry: must include either note ("n" and "o") or bend ("b") fields';
   }
   return newNoteMap;
 }
 
 export function noteMapToNiceNoteMapFormat(noteMap: NoteMap): string {
-  const maxNameLength = Math.max(...Array.from(noteMap.values()).map(mapping => {
-    const noteRepr = noteToNoteRepr(mapping.target);
-    return noteRepr.name.length;
-  }));
+  const noteMappings = Array.from(noteMap.values()).filter(
+    (m): m is Extract<NoteMapping, { target: Note }> => 'target' in m
+  );
+
+  const maxNameLength = noteMappings.length > 0
+    ? Math.max(
+        ...noteMappings.map((m) => {
+          const noteRepr = noteToNoteRepr(m.target);
+          return noteRepr.name.length;
+        })
+      )
+    : 1;
 
   return `[\n${Array.from(noteMap.entries())
-    .map(([sourceNote, mapping]) => {
-      const noteRepr = noteToNoteRepr(mapping.target);
-      const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
-      return `  { "k": ${sourceNote}, "n": "${noteRepr.name}"${namePadding}, "o": ${noteRepr.octave}, "c": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
+    .map(([sourceKey, mapping]) => {
+      if ('target' in mapping) {
+        const noteRepr = noteToNoteRepr(mapping.target);
+        const namePadding = ' '.repeat(maxNameLength - noteRepr.name.length);
+        return `  { "k": ${sourceKey}, "n": "${noteRepr.name}"${namePadding}, "o": ${noteRepr.octave}, "r": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
+      }
+      return `  { "k": ${sourceKey}, "b": ${mapping.bend}, "r": ${mapping.color.rest}, "p": ${mapping.color.pressed} }`;
     })
-    .join(',\n')}\n]`
+    .join(',\n')}\n]`;
 }
 
 
@@ -223,114 +362,52 @@ export const areSameNote = (note1: Note, note2: Note): boolean => {
 //   }
 // };
 
+
+// Note: row 0 is the bottom row
 export const GRID_LAYOUT: Note[][] = [
-  // Row 0 (bottom row)
-  [36, 37, 38, 39, 68, 69, 70, 71],
-  // Row 1
-  [40, 41, 42, 43, 72, 73, 74, 75],
-  // Row 2
-  [44, 45, 46, 47, 76, 77, 78, 79],
-  // Row 3
-  [48, 49, 50, 51, 80, 81, 82, 83],
-  // Row 4
-  [52, 53, 54, 55, 84, 85, 86, 87],
-  // Row 5
-  [56, 57, 58, 59, 88, 89, 90, 91],
-  // Row 6
-  [60, 61, 62, 63, 92, 93, 94, 95],
-  // Row 7 (top row)
-  [64, 65, 66, 67, 96, 97, 98, 99]
+  [11, 12, 13, 14, 15, 16, 17, 18, 19],
+  [21, 22, 23, 24, 25, 26, 27, 28, 29],
+  [31, 32, 33, 34, 35, 36, 37, 38, 39],
+  [41, 42, 43, 44, 45, 46, 47, 48, 49],
+  [51, 52, 53, 54, 55, 56, 57, 58, 59],
+  [61, 62, 63, 64, 65, 66, 67, 68, 69],
+  [71, 72, 73, 74, 75, 76, 77, 78, 79],
+  [81, 82, 83, 84, 85, 86, 87, 88, 89],
+  [91, 92, 93, 94, 95, 96, 97, 98, 99],
 ] as const;
 
 export const DEFAULT_DELTA_MAP: number[][] = [
-  [ 0,  2,  4,  5,  7,  9, 11, 12],
-  [ 1,  3,  5,  6,  8, 10, 12, 13], 
-  [ 2,  4,  6,  7,  9, 11, 13, 14],
-  [ 3,  5,  7,  8, 10, 12, 14, 15],
-  [ 4,  6,  8,  9, 11, 13, 15, 16],
-  [ 5,  7,  9, 10, 12, 14, 16, 17],
-  [ 6,  8, 10, 11, 13, 15, 17, 18],
-  [ 7,  9, 11, 12, 14, 16, 18, 19],
+  [ 0,  2,  4,  5,  7,  9, 11, 12, 14],
+  [ 1,  3,  5,  6,  8, 10, 12, 13, 15],
+  [ 2,  4,  6,  7,  9, 11, 13, 14, 16],
+  [ 3,  5,  7,  8, 10, 12, 14, 15, 17],
+  [ 4,  6,  8,  9, 11, 13, 15, 16, 18],
+  [ 5,  7,  9, 10, 12, 14, 16, 17, 19],
+  [ 6,  8, 10, 11, 13, 15, 17, 18, 20],
+  [ 7,  9, 11, 12, 14, 16, 18, 19, 21],
+  [ 8, 10, 12, 13, 15, 17, 19, 20, 22],
 ]
 
 export const EXTRA_DELTA_MAP: number[][] = [
-  [ 0,  2,  4,  5,  7,  9, 11, 12],
-  [ 1,  3,  5,  6,  8, 10, 12, 13], 
-  
-  [12, 14, 16, 17, 19, 21, 23, 24],
-  [13, 15, 17, 18, 20, 22, 24, 25],
+  [ 0,  2,  4,  5,  7,  9, 11, 12, 14],
+  [ 1,  3,  5,  6,  8, 10, 12, 13, 15],
 
-  [24, 26, 28, 29, 31, 33, 35, 36],
-  [25, 27, 29, 30, 32, 34, 36, 37],
+  [12, 14, 16, 17, 19, 21, 23, 24, 26],
+  [13, 15, 17, 18, 20, 22, 24, 25, 27],
 
-  [36, 38, 40, 41, 43, 45, 47, 48],
-  [37, 39, 41, 42, 44, 46, 48, 49],
+  [24, 26, 28, 29, 31, 33, 35, 36, 38],
+  [25, 27, 29, 30, 32, 34, 36, 37, 39],
+
+  [36, 38, 40, 41, 43, 45, 47, 48, 50],
+  [37, 39, 41, 42, 44, 46, 48, 49, 51],
+
+  [48, 50, 52, 53, 55, 57, 59, 60, 62],
 ]
 
 // Default note mappings for the entire range (36-99)
-export const DEFAULT_MAPPINGS: NoteMap = new Map([
-  [36, { "target": 39, "color": { "rest": 78, "pressed": 21 } }],
-  [37, { "target": 41, "color": { "rest": 78, "pressed": 21 } }],
-  [38, { "target": 43, "color": { "rest": 78, "pressed": 21 } }],
-  [39, { "target": 45, "color": { "rest": 78, "pressed": 21 } }],
-  [40, { "target": 44, "color": { "rest": 78, "pressed": 21 } }],
-  [41, { "target": 46, "color": { "rest": 78, "pressed": 21 } }],
-  [42, { "target": 48, "color": { "rest": 78, "pressed": 21 } }],
-  [43, { "target": 50, "color": { "rest": 78, "pressed": 21 } }],
-  [44, { "target": 49, "color": { "rest": 78, "pressed": 21 } }],
-  [45, { "target": 51, "color": { "rest": 78, "pressed": 21 } }],
-  [46, { "target": 53, "color": { "rest": 78, "pressed": 21 } }],
-  [47, { "target": 55, "color": { "rest": 78, "pressed": 21 } }],
-  [48, { "target": 54, "color": { "rest": 78, "pressed": 21 } }],
-  [49, { "target": 56, "color": { "rest": 78, "pressed": 21 } }],
-  [50, { "target": 58, "color": { "rest": 78, "pressed": 21 } }],
-  [51, { "target": 60, "color": { "rest": 78, "pressed": 21 } }],
-  [52, { "target": 59, "color": { "rest": 78, "pressed": 21 } }],
-  [53, { "target": 61, "color": { "rest": 78, "pressed": 21 } }],
-  [54, { "target": 63, "color": { "rest": 78, "pressed": 21 } }],
-  [55, { "target": 65, "color": { "rest": 78, "pressed": 21 } }],
-  [56, { "target": 64, "color": { "rest": 78, "pressed": 21 } }],
-  [57, { "target": 66, "color": { "rest": 78, "pressed": 21 } }],
-  [58, { "target": 68, "color": { "rest": 78, "pressed": 21 } }],
-  [59, { "target": 70, "color": { "rest": 78, "pressed": 21 } }],
-  [60, { "target": 69, "color": { "rest": 78, "pressed": 21 } }],
-  [61, { "target": 71, "color": { "rest": 78, "pressed": 21 } }],
-  [62, { "target": 73, "color": { "rest": 78, "pressed": 21 } }],
-  [63, { "target": 75, "color": { "rest": 78, "pressed": 21 } }],
-  [64, { "target": 74, "color": { "rest": 78, "pressed": 21 } }],
-  [65, { "target": 76, "color": { "rest": 78, "pressed": 21 } }],
-  [66, { "target": 78, "color": { "rest": 78, "pressed": 21 } }],
-  [67, { "target": 80, "color": { "rest": 78, "pressed": 21 } }],
-  [68, { "target": 47, "color": { "rest": 78, "pressed": 21 } }],
-  [69, { "target": 49, "color": { "rest": 78, "pressed": 21 } }],
-  [70, { "target": 51, "color": { "rest": 78, "pressed": 21 } }],
-  [71, { "target": 53, "color": { "rest": 78, "pressed": 21 } }],
-  [72, { "target": 52, "color": { "rest": 78, "pressed": 21 } }],
-  [73, { "target": 54, "color": { "rest": 78, "pressed": 21 } }],
-  [74, { "target": 56, "color": { "rest": 78, "pressed": 21 } }],
-  [75, { "target": 58, "color": { "rest": 78, "pressed": 21 } }],
-  [76, { "target": 57, "color": { "rest": 78, "pressed": 21 } }],
-  [77, { "target": 59, "color": { "rest": 78, "pressed": 21 } }],
-  [78, { "target": 61, "color": { "rest": 78, "pressed": 21 } }],
-  [79, { "target": 63, "color": { "rest": 78, "pressed": 21 } }],
-  [80, { "target": 62, "color": { "rest": 78, "pressed": 21 } }],
-  [81, { "target": 64, "color": { "rest": 78, "pressed": 21 } }],
-  [82, { "target": 66, "color": { "rest": 78, "pressed": 21 } }],
-  [83, { "target": 68, "color": { "rest": 78, "pressed": 21 } }],
-  [84, { "target": 67, "color": { "rest": 78, "pressed": 21 } }],
-  [85, { "target": 69, "color": { "rest": 78, "pressed": 21 } }],
-  [86, { "target": 71, "color": { "rest": 78, "pressed": 21 } }],
-  [87, { "target": 73, "color": { "rest": 78, "pressed": 21 } }],
-  [88, { "target": 72, "color": { "rest": 78, "pressed": 21 } }],
-  [89, { "target": 74, "color": { "rest": 78, "pressed": 21 } }],
-  [90, { "target": 76, "color": { "rest": 78, "pressed": 21 } }],
-  [91, { "target": 78, "color": { "rest": 78, "pressed": 21 } }],
-  [92, { "target": 77, "color": { "rest": 78, "pressed": 21 } }],
-  [93, { "target": 79, "color": { "rest": 78, "pressed": 21 } }],
-  [94, { "target": 81, "color": { "rest": 78, "pressed": 21 } }],
-  [95, { "target": 83, "color": { "rest": 78, "pressed": 21 } }],
-  [96, { "target": 82, "color": { "rest": 78, "pressed": 21 } }],
-  [97, { "target": 84, "color": { "rest": 78, "pressed": 21 } }],
-  [98, { "target": 86, "color": { "rest": 78, "pressed": 21 } }],
-  [99, { "target": 88, "color": { "rest": 78, "pressed": 21 } }]
-])
+export const DEFAULT_MAPPINGS: NoteMap = generateIsomorphicLayoutMap(
+  DEFAULT_START_NOTE,
+  DEFAULT_HORIZONTAL_STEP,
+  DEFAULT_VERTICAL_STEP,
+  defaultColorFromNote,
+);

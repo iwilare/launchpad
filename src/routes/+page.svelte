@@ -1,6 +1,6 @@
 <script lang="ts">
-  import "../static/app.css";  
-  
+  import "../static/app.css";
+
   import { onMount } from "svelte";
   import MIDINoteMap from "$lib/MIDINoteMap.svelte";
   import SoundGenerator from "$lib/SoundGenerator.svelte";
@@ -8,7 +8,8 @@
   import ThemeToggle from "$lib/ThemeToggle.svelte";
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import IsomorphicKeyboardGenerator from "$lib/IsomorphicKeyboardGenerator.svelte";
-  import { type Note, type NoteMap, noteToString, DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type Key, type LaunchpadColor, type Controller, areSameNote, niceNoteMapToNoteMap, } from "../types/notes";
+  import { type Note, type NoteMap, noteToString, DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type Key, type LaunchpadColor, type Controller, areSameNote, niceNoteMapToNoteMap, generateSaxophoneLayoutMap, } from "../types/notes";
+  import { keyToSax, saxPressedKeysToNote } from "./saxophone";
   import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, } from "../types/ui";
   import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap } from "svelte/reactivity";
@@ -24,11 +25,12 @@
   let noteMap: NoteMap = DEFAULT_MAPPINGS;
 
   let activeNotes: NoteState = new SvelteMap();
+  let saxPressedKeys = new Set<ReturnType<typeof keyToSax.get> extends infer T ? T extends string ? T : never : never>();
+  let currentSaxNote: Note | null = null;
   let controller: Controller = new SvelteMap();
   let soundState: SoundState = emptySoundState();
 
   let deviceSettings: DeviceSettings = {
-    programmerMode: false,
     brightness: 127,
   };
 
@@ -50,7 +52,7 @@
 
   /* MIDI logic */
   function connectToInputDevice(deviceId: string) {
-    if (!midiAccess) { 
+    if (!midiAccess) {
       console.error("No midi access to connect to input device");
       return "No midi access to connect to input device";
     }
@@ -79,7 +81,7 @@
     if (selectedColor) {
       console.log("Connecting to color device", deviceId);
       selectedColorDevice = deviceId;
-      sendAllKeyboardColors();
+      syncKeyboardStatus();
       localStorage.setItem("midiColorDevice", selectedColorDevice);
     } else {
       console.error("Requested color device not found", deviceId);
@@ -89,7 +91,7 @@
 
   function connectToOutputDevice(deviceId: string | 42) {
     if(typeof deviceId === 'string') {
-      if (!midiAccess) { 
+      if (!midiAccess) {
         console.error("No midi access to connect to output device");
         return "No midi access to connect to output device";
       }
@@ -190,20 +192,20 @@
     const map = noteMap.get(key);
     if (!map) return;
     if (showSameNotePressed === "yes") {
-      const wouldBeAffectedNotes = activeNotes.get(map.target) ?? 0; 
+      const wouldBeAffectedNotes = 'target' in map ? (activeNotes.get(map.target) ?? 0) : 0;
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
-          if (map.target == otherMap.target) { return controllerChangeColor(otherKey, isPressed); }
+          if ('target' in map && 'target' in otherMap && map.target == otherMap.target) { return controllerChangeColor(otherKey, isPressed); }
         });
       }
     } else if (showSameNotePressed === "octave") {
       let wouldBeAffectedNotes = 0;
-      activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes += n; } });
+      if ('target' in map) { activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes += n; } }); }
       const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
       if(needsChange) {
         noteMap.forEach((otherMap, otherKey) => {
-          if (areSameNote(map.target, otherMap.target)) { return controllerChangeColor(otherKey, isPressed); }
+          if ('target' in map && 'target' in otherMap && areSameNote(map.target, otherMap.target)) { return controllerChangeColor(otherKey, isPressed); }
         });
       }
     } else {
@@ -223,14 +225,14 @@
     }
   }
 
-  function pressNoteAudio(note: Note, velocity: number = 1.0) {
+  function pressNoteAudio(note: Note, velocity: number = 127) {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
         sendMIDIPacket(selectedOutputDevice, [0x90, note, velocity]);
       } else {
         pressNoteAudioSynth(soundState, soundSettings, note, velocity);
       }
-    } 
+    }
   }
 
   function releaseNoteAudio(note: Note) {
@@ -243,27 +245,105 @@
     }
   }
 
-  function playKey(key: Key, velocity: number = 1.0) {
+  function playKey(key: Key, velocity: number = 127) {
+    // Sax logic first: some sax keys are intentionally unmapped in the layout
+    const saxKey = keyToSax.get(key);
+    if (saxKey) {
+      const k = controller.get(key);
+      if (k !== undefined && !k.active) {
+        controller.set(key, { ...k, active: true });
+        handleNoteColor(key, true);
+      }
+      saxPressedKeys.add(saxKey as any);
+      const note = saxPressedKeysToNote(saxPressedKeys);
+      if (note !== null) {
+        if (currentSaxNote !== null && currentSaxNote !== note) {
+          releaseNoteAudio(currentSaxNote);
+          decreaseNoteMut(activeNotes, currentSaxNote);
+        }
+        if (currentSaxNote !== note) {
+          currentSaxNote = note;
+          pressNoteAudio(note, velocity);
+          increaseNoteMut(activeNotes, note);
+        }
+      }
+      return;
+    }
     const map = noteMap.get(key);
-    if (!map) throw "No mapping to play note";
+    if (!map) return; // In other layouts unmapped keys do nothing
     const k = controller.get(key);
     if (k !== undefined && !k.active) {
       controller.set(key, { ...k, active: true });
       handleNoteColor(key, true);
-      increaseNoteMut(activeNotes, map.target);
-      pressNoteAudio(map.target, velocity);
+      if ('target' in map) { increaseNoteMut(activeNotes, map.target); }
+      // If key maps to a sax key, update monophonic sax logic
+      const saxKey = keyToSax.get(key);
+      if (saxKey) {
+        saxPressedKeys.add(saxKey as any);
+        const note = saxPressedKeysToNote(saxPressedKeys);
+        if (note !== null) {
+          if (currentSaxNote !== null && currentSaxNote !== note) {
+            releaseNoteAudio(currentSaxNote);
+            decreaseNoteMut(activeNotes, currentSaxNote);
+          }
+          currentSaxNote = note;
+          pressNoteAudio(note, velocity);
+          increaseNoteMut(activeNotes, note);
+        }
+        return;
+      }
+      if ('target' in map) { pressNoteAudio(map.target, velocity); }
     }
   }
 
   function stopKey(key: Key) {
+    const saxKey = keyToSax.get(key);
+    if (saxKey) {
+      const k = controller.get(key);
+      if (k !== undefined && k.active) {
+        controller.set(key, { ...k, active: false });
+        handleNoteColor(key, false);
+      }
+      saxPressedKeys.delete(saxKey as any);
+      const newNote = saxPressedKeysToNote(saxPressedKeys);
+      if (currentSaxNote !== null && (newNote === null || newNote !== currentSaxNote)) {
+        releaseNoteAudio(currentSaxNote);
+        decreaseNoteMut(activeNotes, currentSaxNote);
+      }
+      if (newNote !== null && newNote !== currentSaxNote) {
+        currentSaxNote = newNote;
+        pressNoteAudio(newNote, 127);
+        increaseNoteMut(activeNotes, newNote);
+      } else {
+        currentSaxNote = newNote;
+      }
+      return;
+    }
     const map = noteMap.get(key);
-    if (!map) throw "No mapping to play note";
+    if (!map) return;
     const k = controller.get(key);
     if (k !== undefined && k.active) {
       controller.set(key, { ...k, active: false });
       handleNoteColor(key, false);
-      decreaseNoteMut(activeNotes, map.target);
-      releaseNoteAudio(map.target);
+      if ('target' in map) { decreaseNoteMut(activeNotes, map.target); }
+      const saxKey = keyToSax.get(key);
+      if (saxKey) {
+        saxPressedKeys.delete(saxKey as any);
+        const newNote = saxPressedKeysToNote(saxPressedKeys);
+        if (currentSaxNote !== null && (newNote === null || newNote !== currentSaxNote)) {
+          releaseNoteAudio(currentSaxNote);
+          decreaseNoteMut(activeNotes, currentSaxNote);
+        }
+        if (newNote !== null && newNote !== currentSaxNote) {
+          currentSaxNote = newNote;
+          pressNoteAudio(newNote, 127);
+          increaseNoteMut(activeNotes, newNote);
+        } else {
+          currentSaxNote = newNote;
+        }
+        return;
+      }
+      if ('target' in map) { releaseNoteAudio(map.target); }
     }
   }
 
@@ -280,7 +360,7 @@
     const messageType = status & 0xf0;
 
     if (messageType === 0x90 && velocity > 0) {
-      playKey(note, velocity / 127);
+      playKey(note, 127);
       description = `Note On:  ${noteToString(note)} (${note}), Velocity: ${velocity}, Channel: ${channel + 1}`;
     } else if (
       messageType === 0x80 ||
@@ -316,18 +396,27 @@
     }
   }
 
-  function sendAllKeyboardColors() {
+  function sendProgrammerMode() {
+    if (selectedColorDevice) {
+      return sendMIDIPacket(selectedColorDevice, [0xF0, 0x00, 0x20, 0x29, 0x02, 0x0D, 0x00, 0x7F, 0xF7])
+    } else {
+      return "No selected device";
+    }
+  }
+
+  function syncKeyboardStatus() {
     console.log("Sending all keyboard colors");
     noteMap.forEach((_, note) => {
       controllerChangeColor(note, false);
     });
+    sendProgrammerMode();
     sendBrightness();
   }
 
   function setNoteMap(newNoteMap: NoteMap) {
     stopEverythingAudio();
     noteMap = newNoteMap;
-    sendAllKeyboardColors();
+    syncKeyboardStatus();
     localStorage.setItem("noteMap", noteMapToNiceNoteMapFormat(noteMap));
   }
 
@@ -368,7 +457,7 @@
   onMount(() => {
     const savedNoteMap = localStorage.getItem("noteMap");
     if (savedNoteMap) {
-      const maybeMap = niceNoteMapToNoteMap(savedNoteMap);
+      const maybeMap = niceNoteMapToNoteMap(savedNoteMap as unknown as any);
       if (typeof maybeMap !== "string") {
         noteMap = maybeMap;
       }
@@ -411,6 +500,7 @@
   <header class="App-header">
     <h1>MIDI Controller</h1>
     <ThemeToggle onThemeChange={handleThemeChange} />
+    <a href="/saxophone" class="nav-link" style="position:absolute; right:16px; top:16px;">Saxophone ▶</a>
   </header>
   <div class="section">
     <h3>MIDI Devices</h3>
@@ -567,7 +657,7 @@
         </div>
       </div>
       <button
-        on:click={sendAllKeyboardColors}
+        on:click={syncKeyboardStatus}
         class="action"
         style="margin-left: 24px;">Sync Keyboard</button
       >
@@ -581,6 +671,10 @@
       on:click={() => setNoteMap(DEFAULT_MAPPINGS)}
       class="action">Reset Keyboard Layout</button
     >
+      <button
+        style="margin-top: 10px; margin-left: 10px;"
+        on:click={() => setNoteMap(generateSaxophoneLayoutMap())}
+        class="action">Saxophone Layout</button>
   </div>
 </div>
 
@@ -613,6 +707,9 @@
     border-top: none;
     margin-bottom: 20px;
   }
+
+  .nav-link { color: var(--text-color); text-decoration: none; opacity: 0.8; }
+  .nav-link:hover { opacity: 1; text-decoration: underline; }
 
   .section {
     margin-bottom: 20px;

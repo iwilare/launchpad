@@ -1,7 +1,6 @@
 import { isBlackNote, type LaunchpadColor, type Note, type NoteColor, type NoteMap } from "./notes";
 
 export interface DeviceSettings {
-    programmerMode: boolean;
     brightness: number;
 }
 
@@ -41,11 +40,11 @@ export const isLastNote = (noteState: NoteState, note: number) => {
     return v !== undefined && v == 1;
 };
 
-export function colorFromSettings(settings: ColorSettings, note: Note): NoteColor {
+export function colorFromSettings(settings: ColorSettings, note: Note | null): NoteColor {
     return settings.singleColor ? {
         rest: settings.whiteRest,
         pressed: settings.whitePressed,
-    } : !isBlackNote(note) ? {
+    } : note !== null && !isBlackNote(note) ? {
         rest: settings.whiteRest,
         pressed: settings.whitePressed,
     } : {
@@ -57,7 +56,8 @@ export function colorFromSettings(settings: ColorSettings, note: Note): NoteColo
 export function applyColorsToMap(settings: ColorSettings, noteMap: NoteMap): NoteMap {
     const newNoteMap: NoteMap = new Map();
     noteMap.forEach((mapping, note) => {
-        newNoteMap.set(note, { ...mapping, color: colorFromSettings(settings, mapping.target) });
+        newNoteMap.set(note, { ...mapping,  
+            color: colorFromSettings(settings, 'target' in mapping ? mapping.target : null) });
     });
     return newNoteMap;
 }

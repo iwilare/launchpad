@@ -16,7 +16,11 @@
     const mapping = noteMap.get(src);
     if (mapping) {
       const newNoteMap = new Map(noteMap);
-      newNoteMap.set(src, { ...mapping, target: newNote });
+      if ('target' in mapping) {
+        newNoteMap.set(src, { ...mapping, target: newNote });
+      } else {
+        newNoteMap.set(src, { target: newNote, color: mapping.color });
+      }
       setNoteMap(newNoteMap);
     }
   }
@@ -25,19 +29,26 @@
 <div class="grid-keyboard-container">
   <div class="grid-keyboard">
     <div class="grid-container">
-      {#each GRID_LAYOUT.toReversed() as row}
+      {#each GRID_LAYOUT.toReversed() as row, revRowIndex}
+        {#key revRowIndex}
+        { @const originalRowIndex = GRID_LAYOUT.length - 1 - revRowIndex }
         <div class="grid-row">
-          {#each row as src}
+          {#each row as src, colIndex}
+            { @const isTopRow = originalRowIndex === GRID_LAYOUT.length - 1 }
+            { @const isRightCol = colIndex === row.length - 1 }
+            { @const isTopRight = isTopRow && isRightCol }
             <div
-              class="grid-cell {controller.get(src)?.active ?? false ? 'active' : ''}"
+              class="grid-cell {controller.get(src)?.active ?? false ? 'active' : ''} {isTopRow || isRightCol ? 'special' : ''} {isTopRight ? 'disabled' : ''}"
               style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_LAUNCHPAD_COLOR)}"
               role="button"
-              tabindex="0"
-              on:mouseenter|preventDefault={(e) => { if (e.buttons === 1) { onKeyPress(src); } }}
-              on:mousedown|preventDefault={(e) => { if (e.buttons === 1) { onKeyPress(src); } }}
-              on:mouseup={() => onKeyRelease(src)}
-              on:mouseleave={() => { onKeyRelease(src) }}
+              tabindex={isTopRight ? -1 : 0}
+              aria-disabled={isTopRight}
+              on:mouseenter|preventDefault={(e) => { if (!isTopRight && e.buttons === 1) { onKeyPress(src); } }}
+              on:mousedown|preventDefault={(e) => { if (!isTopRight && e.buttons === 1) { onKeyPress(src); } }}
+              on:mouseup={() => { if (!isTopRight) onKeyRelease(src) }}
+              on:mouseleave={() => { if (!isTopRight) onKeyRelease(src) }}
               on:contextmenu|preventDefault={(e) => {
+                if (isTopRight) return;
                 e.stopPropagation();
                 colorPickerCell = src;
               }}
@@ -45,7 +56,7 @@
               <div class="cell-content">
                 <NoteInput
                   id={`note-${src}`}
-                  data={noteMap.get(src)?.target ?? 0}
+                  data={(noteMap.get(src) && 'target' in (noteMap.get(src) as any) ? (noteMap.get(src) as any).target : 0)}
                   onChange={(newNote) => handleNoteChange(src, newNote)}
                   asButton={true}
                   className="note-name"
@@ -55,6 +66,7 @@
             </div>
           {/each}
         </div>
+        {/key}
       {/each}
     </div> 
     <!-- {#if colorPickerCell}
@@ -126,6 +138,15 @@
     position: relative;
     user-select: none;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  .grid-cell.special {
+    outline: 2px dashed var(--border-color);
+  }
+
+  .grid-cell.disabled {
+    pointer-events: none;
+    opacity: 0.5;
   }
 
   .grid-cell:hover {

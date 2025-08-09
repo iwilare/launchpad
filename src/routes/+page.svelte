@@ -9,17 +9,18 @@
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import LayoutGenerator from "$lib/LayoutGenerator.svelte";
   import LayoutManager from "$lib/LayoutManager.svelte";
-  import { GRID_LAYOUT, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP } from '../types/ui';
-  import { applyColorsToMap, colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
-    DEFAULT_MAPPINGS, noteMapToNiceNoteMapFormat, type LaunchpadColor,
+  import { colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
+    noteMapToNiceNoteMapFormat, type LaunchpadColor,
     type Controller, niceNoteMapToNoteMap,
-    niceNoteMap, generateSaxophoneLayoutMap } from "../types/ui";
+    niceNoteMap,
+    forEachNotePressed} from "../types/ui";
   import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap, SvelteSet } from "svelte/reactivity";
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
   import { noteToString, areSameNote, noteReprToNote } from "../types/notes";
   import { saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
+  import { DEFAULT_MAPPINGS, applyColorsToMap } from "../types/layouts";
 
   let midiAccess: MIDIAccess | null = null;
   let selectedInputDevice: string | null = null;
@@ -182,14 +183,11 @@
     }
   }
 
-  function controllerChangeColor(key: Note, isPressed: boolean): string | null {
+  function controllerInteract(key: Note, value: boolean): string | null {
     const mapping = noteMap.get(key);
     if (!mapping) return "No mapping to send color";
-    const color = isPressed ? mapping.color.pressed : mapping.color.rest;
-    controller.set(key, {
-      active: controller.get(key)?.active ?? false,
-      color,
-    });
+    const color = value ? mapping.color.pressed : mapping.color.rest;
+    controller.set(key, { active: value, color });
     if (selectedColorDevice) {
       return sendMIDIPacket(selectedColorDevice, [0x90, key, color]);
     } else {
@@ -197,50 +195,50 @@
     }
   }
 
-  function handleNoteColor(key: Note, isPressed: boolean) {
+  function handleNoteColor(key: Note, value: boolean) {
     const map = noteMap.get(key);
-    if (!map) return;
-    if(map.type == 'note') {
+    if(map !== undefined && map.mapping.type == 'note') {
+      const m = map.mapping;
       if (showSameNotePressed === "yes") {
-        const wouldBeAffectedNotes = activeNotes.get(map.target) ?? 0;
-        const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
+        const wouldBeAffectedNotes = activeNotes.get(m.target) ?? 0;
+        const needsChange = value && wouldBeAffectedNotes === 0 || !value && wouldBeAffectedNotes === 1;
         if(needsChange) {
           noteMap.forEach((otherMap, otherKey) => {
-            if (otherMap.type === 'note' && map.target == otherMap.target) { return controllerChangeColor(otherKey, isPressed); }
+            if (otherMap.mapping.type === 'note' && m.target == otherMap.mapping.target) {
+              return controllerInteract(otherKey, value);
+            }
           });
         }
       } else if (showSameNotePressed === "octave") {
         let wouldBeAffectedNotes = 0;
-        activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(map.target, k)) { wouldBeAffectedNotes += n; } });
-        const needsChange = isPressed && wouldBeAffectedNotes === 0 || !isPressed && wouldBeAffectedNotes === 1;
+        activeNotes.forEach((n, k) => { if (n > 0 && areSameNote(m.target, k)) { wouldBeAffectedNotes += n; } });
+        const needsChange = value && wouldBeAffectedNotes === 0 || !value && wouldBeAffectedNotes === 1;
         if(needsChange) {
           noteMap.forEach((otherMap, otherKey) => {
-            if (otherMap.type === 'note' && areSameNote(map.target, otherMap.target)) {
-              return controllerChangeColor(otherKey, isPressed);
+            if (otherMap.mapping.type === 'note' && areSameNote(m.target, otherMap.mapping.target)) {
+              return controllerInteract(otherKey, value);
             }
           });
         }
       } else {
-        return controllerChangeColor(key, isPressed);
+        return controllerInteract(key, value);
       }
     } else {
-      return controllerChangeColor(key, isPressed);
+      return controllerInteract(key, value);
     }
   }
 
   function stopEverythingAudio() {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
-        controller.forEach((_, key) => {
-          releaseNoteAudio(key);
-        });
+        forEachNotePressed(activeNotes, releaseNoteAudio)
       } else {
         stopEverythingAudioSynth(soundState);
       }
     }
   }
 
-  function pressNoteAudio(note: Note, velocity: number = 1.0) {
+  function pressNoteAudio(note: Note, velocity: number = 127) {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
         sendMIDIPacket(selectedOutputDevice, [0x90, note, velocity]);
@@ -260,55 +258,68 @@
     }
   }
 
-  function playKey(key: Key, velocity: number = 127) {
+  function playKey(key: Key, velocity: number = 127): string | null {
     const map = noteMap.get(key);
-    if (!map) throw "No mapping to play note";
+    console.log("Play key", key, map);
+    if (!map) return "No mapping to play note";
     const k = controller.get(key);
-    if (k !== undefined && !k.active) {
-      if(map.type == 'note') {
-        controller.set(key, { ...k, active: true });
+    if (k === undefined || !k.active) {
+      const m = map.mapping;
+      if(m.type == 'note') {
+        controllerInteract(key, true);
         handleNoteColor(key, true);
-        increaseNoteMut(activeNotes, map.target);
-        pressNoteAudio(map.target, velocity);
-      } else if(map.type == 'pitch') {
+        increaseNoteMut(activeNotes, m.target);
+        pressNoteAudio(m.target, velocity);
+      } else if(m.type == 'pitch') {
         // todo
-      } else if(map.type == 'timbre') {
+      } else if(m.type == 'timbre') {
         // todo
-      } else if(map.type == 'sax') {
-        controller.set(key, { ...k, active: true });
+      } else if(m.type == 'sax') {
+        controllerInteract(key, true);
         handleNoteColor(key, true);
-        increaseNoteMut(saxNotes, map.saxKey);
-        const n = saxPressedKeysToNote(saxNotes);
-        if(currentSaxNote !== null)
+        increaseNoteMut(saxNotes, m.key);
+        const nextNote = saxPressedKeysToNote(saxNotes);
+        console.log("Sax", key, "next", nextNote, currentSaxNote, saxNotes)
+        if(currentSaxNote !== null && nextNote !== currentSaxNote)
           releaseNoteAudio(currentSaxNote);
-        if(n !== null) {
-          pressNoteAudio(n, currentSaxVelocity);
+        const play = saxNotes.get('Play');
+        if(nextNote !== null && play !== undefined && play > 0) {
+          currentSaxNote = nextNote;
+          pressNoteAudio(nextNote, currentSaxVelocity);
         }
       }
-    }
+      return null
+    } else
+      return "Key already pressed";
   }
 
-  function stopKey(key: Key) {
+  function stopKey(key: Key): string | null {
     const map = noteMap.get(key);
-    if (!map) throw "No mapping to play note";
+    if (!map) return "No mapping to play note";
     const k = controller.get(key);
-    if (k !== undefined && k.active)
-      if(map.type == 'note'){
-        controller.set(key, { ...k, active: false });
+    if (k !== undefined && k.active) {
+      const m = map.mapping;
+      if(m.type == 'note'){
+        controllerInteract(key, false);
         handleNoteColor(key, false);
-        decreaseNoteMut(activeNotes, map.target);
-        releaseNoteAudio(map.target);
-      } else if(map.type == 'sax') {
-        controller.set(key, { ...k, active: false });
+        decreaseNoteMut(activeNotes, m.target);
+        releaseNoteAudio(m.target);
+      } else if(m.type == 'sax') {
+        controllerInteract(key, false);
         handleNoteColor(key, false);
-        decreaseNoteMut(saxNotes, map.saxKey);
-        const n = saxPressedKeysToNote(saxNotes);
-        if(currentSaxNote !== null)
+        decreaseNoteMut(saxNotes, m.key);
+        const nextNote = saxPressedKeysToNote(saxNotes);
+        if(currentSaxNote !== null && nextNote !== currentSaxNote)
           releaseNoteAudio(currentSaxNote);
-        if(n !== null) {
-          pressNoteAudio(n, currentSaxVelocity);
+        const play = saxNotes.get('Play')
+        if(nextNote !== null && play !== undefined && play > 0) {
+          currentSaxNote = nextNote;
+          pressNoteAudio(nextNote, currentSaxVelocity);
         }
       }
+      return null
+    } else
+      return "Key already pressed";
   }
 
   function onMIDIMessage(event: MIDIMessageEvent) {
@@ -375,7 +386,7 @@
   function sendAllKeyboardColors() {
     console.log("Sending all keyboard colors");
     noteMap.forEach((_, note) => {
-      controllerChangeColor(note, false);
+      controllerInteract(note, false);
     });
     sendProgrammerMode();
     sendBrightness();
@@ -548,33 +559,22 @@
   {#if typeof selectedOutputDevice !== 'string'}
   <div class="section">
     <h3>Sound Generator</h3>
-    <SoundGenerator
-      settings={soundSettings}
-      onSettingsChange={setSoundSettings}
-      />
+    <SoundGenerator settings={soundSettings} onSettingsChange={setSoundSettings} />
     </div>
   {/if}
 
   <div class="section">
     <h3>Layouts</h3>
-    <LayoutGenerator
-      onUpdateMapping={setNoteMap}
-      getNoteColor={(note) => colorFromSettings(colorSettings, note)}
-    />
-    <div style="margin-top: 10px; text-align: left;">
+    <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
+
+      <div style="margin-top: 10px; text-align: left;">
       <LayoutManager {noteMap} onRestoreMap={setNoteMap} />
     </div>
   </div>
 
   <div class="section">
     <h3>Launchpad Layout</h3>
-    <GridKeyboard
-      onKeyPress={(k) => playKey(k)}
-      onKeyRelease={stopKey}
-      {setNoteMap}
-      {controller}
-      {noteMap}
-    />
+    <GridKeyboard onKeyPress={(k) => playKey(k)} onKeyRelease={stopKey} {setNoteMap} {controller} {noteMap} />
     <p class="launchpad-layout-tooltip">
       Click note label to edit, click pad edges to play, right-click to open
       color picker
@@ -586,9 +586,7 @@
       <h3>Settings</h3>
       <div class="settings-controls">
         <div style="display: flex; flex-direction: column; align-items: flex-start;">
-          <DefaultColorsSettings
-            {colorSettings}
-            onColorSettingsChange={(settings) => {
+          <DefaultColorsSettings {colorSettings} onColorSettingsChange={(settings) => {
               colorSettings = settings;
               setNoteMap(applyColorsToMap(settings, noteMap));
             }}
@@ -598,30 +596,18 @@
           style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;"
         >
           <label>
-            <input
-              type="radio"
-              name="show-same-note-pressed"
-              checked={showSameNotePressed === "no"}
-              on:change={() => (showSameNotePressed = "no")}
-            />
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "no"}
+              on:change={() => (showSameNotePressed = "no")} />
             Light up only the physical button
           </label>
           <label>
-            <input
-              type="radio"
-              name="show-same-note-pressed"
-              checked={showSameNotePressed === "yes"}
-              on:change={() => (showSameNotePressed = "yes")}
-            />
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "yes"}
+              on:change={() => (showSameNotePressed = "yes")} />
             Light up any occurrence of the note
           </label>
           <label>
-            <input
-              type="radio"
-              name="show-same-note-pressed"
-              checked={showSameNotePressed === "octave"}
-              on:change={() => (showSameNotePressed = "octave")}
-            />
+            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "octave"}
+              on:change={() => (showSameNotePressed = "octave")} />
             Light up any occurrence of the note in any octave
           </label>
         </div>

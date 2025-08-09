@@ -1,40 +1,44 @@
 <script lang="ts">
   import type { Note } from '../types/notes';
-  import { noteToString, isBlackNote } from '../types/notes';
-  import type { NoteMapping } from '../types/ui';
-  import type { SaxKey } from '../types/saxophone';
-  import { allMainKeys } from '../types/saxophone';
+  import { isBlackNote } from '../types/notes';
+  import type { NoteMapping, MappingColor } from '../types/ui';
+  import { SAX_KEYS, DEFAULT_SAX_KEY, type SaxKey } from '../types/saxophone';
   import ColorButton from './ColorButton.svelte';
   import NoteInput from './NoteInput.svelte';
 
-  export let key: Note;
-  export let mapping: NoteMapping | undefined;
-  export let onChange: (mapping: NoteMapping | undefined) => void;
+  // Row props
+  export let key: Note; // launchpad key code
+  export let value: { mapping: NoteMapping; color: MappingColor } | undefined;
+  export let onChange: (value: { mapping: NoteMapping; color: MappingColor } | undefined) => void;
 
-  // Helper function to determine if this should use black key styling
-  function shouldUseBlackKeyStyling(mapping?: NoteMapping): boolean {
-    return !!mapping && mapping.type === 'note' && isBlackNote(mapping.target);
-  }
+  // Derive mapping for ergonomic access
+  $: mapping = value?.mapping;
+
+  const DEFAULT_COLOR: MappingColor = { rest: 0x00, pressed: 0x25 };
 
   function handleTypeChange(newType: 'note' | 'pitch' | 'timbre' | 'sax' | 'none') {
     if (newType === 'none') { onChange(undefined); return; }
-    const commonColor = mapping ? mapping.color : { rest: 0x00, pressed: 0x25 };
-    if (mapping && newType === mapping.type) return;
-    if (newType === 'note') {
-      const target = (mapping && mapping.type === 'note' ? mapping.target : 60) as Note;
-      onChange({ type: 'note', target, color: commonColor });
-    } else if (newType === 'pitch') {
-      onChange({ type: 'pitch', bend: 0, color: commonColor });
-    } else if (newType === 'timbre') {
-      onChange({ type: 'timbre', waveform: 'sine', color: commonColor });
-    } else if (newType === 'sax') {
-      const def: SaxKey = allMainKeys[0];
-      onChange({ type: 'sax', saxKey: def, color: commonColor });
+    const currentColor = value ? value.color : DEFAULT_COLOR;
+    if (mapping && mapping.type === newType) return;
+    let newMapping: NoteMapping;
+    switch (newType) {
+      case 'note': {
+        const target = mapping && mapping.type === 'note' ? mapping.target : (60 as Note);
+        newMapping = { type: 'note', target };
+        break;
+      }
+      case 'pitch':
+        newMapping = { type: 'pitch', bend: 0 }; break;
+      case 'timbre':
+        newMapping = { type: 'timbre', waveform: 'sine' }; break;
+      case 'sax':
+        newMapping = { type: 'sax', key: DEFAULT_SAX_KEY }; break;
     }
+    onChange({ mapping: newMapping!, color: currentColor });
   }
 </script>
 
-<tr class={shouldUseBlackKeyStyling(mapping) ? 'black-key' : ''}>
+<tr class={mapping !== undefined && mapping.type === 'note' && isBlackNote(mapping.target) ? 'black-key' : ''}>
   <td>{key}</td>
   <td>
     <select
@@ -48,8 +52,6 @@
       <option value="timbre">timbre</option>
       <option value="sax">sax</option>
     </select>
-  </td>
-  <td>
     <div class="input-container">
       {#if !mapping}
         <span style="opacity: 0.7; font-size: 12px;">—</span>
@@ -57,13 +59,13 @@
         <NoteInput
           id={key.toString()}
           data={mapping.target}
-          onChange={(value) => onChange({ ...mapping, target: value })}
+          onChange={(newTarget) => onChange(value && { mapping: { ...mapping, target: newTarget }, color: value.color })}
         />
       {:else if mapping.type === 'pitch'}
         <input
           type="number"
           value={mapping.bend}
-          on:input={(e) => onChange({ ...mapping, bend: parseFloat(e.currentTarget.value) })}
+          on:input={(e) => onChange(value && { mapping: { ...mapping, bend: parseFloat(e.currentTarget.value) }, color: value.color })}
           min="-1"
           max="1"
           step="0.1"
@@ -71,7 +73,7 @@
       {:else if mapping.type === 'timbre'}
         <select
           value={mapping.waveform}
-          on:change={(e) => onChange({ ...mapping, waveform: e.currentTarget.value as OscillatorType })}
+          on:change={(e) => onChange(value && { mapping: { ...mapping, waveform: e.currentTarget.value as OscillatorType }, color: value.color })}
         >
           <option value="sine">Sine</option>
           <option value="square">Square</option>
@@ -80,10 +82,10 @@
         </select>
       {:else if mapping.type === 'sax'}
         <select
-          value={mapping.saxKey}
-          on:change={(e) => onChange({ ...mapping, saxKey: e.currentTarget.value as SaxKey })}
+          value={mapping.key}
+          on:change={(e) => onChange(value && { mapping: { ...mapping, key: e.currentTarget.value as SaxKey }, color: value.color })}
         >
-          {#each allMainKeys as k}
+          {#each SAX_KEYS as k}
             <option value={k}>{k}</option>
           {/each}
         </select>
@@ -92,22 +94,22 @@
   </td>
   <td>
     <div class="button-container">
-      {#if mapping}
+    {#if value}
         <ColorButton
-          value={mapping.color.rest}
+      value={value.color.rest}
           index={key}
-          onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, rest: value } })}
+      onChange={(c) => onChange(value && { mapping: value.mapping, color: { ...value.color, rest: c } })}
         />
       {/if}
     </div>
   </td>
   <td>
     <div class="button-container">
-      {#if mapping}
+    {#if value}
         <ColorButton
-          value={mapping.color.pressed}
+      value={value.color.pressed}
           index={key}
-          onChange={(value) => onChange({ ...mapping, color: { ...mapping.color, pressed: value } })}
+      onChange={(c) => onChange(value && { mapping: value.mapping, color: { ...value.color, pressed: c } })}
         />
       {/if}
     </div>

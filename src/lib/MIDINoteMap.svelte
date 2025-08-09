@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import type { Note } from '../types/notes';
   import { noteToNoteRepr, isBlackNote } from '../types/notes';
-  import type { NoteMapping, LaunchpadColor, NoteMap } from '../types/ui';
-  import { niceNoteMap, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat, GRID_LAYOUT } from '../types/ui';
+  import type { NoteMapping, LaunchpadColor, NoteMap, MappingColor, Key, MapData } from '../types/ui';
+  import { niceNoteMap, niceNoteMapToNoteMap, noteMapToNiceNoteMapFormat } from '../types/ui';
   import MIDINoteMapRow from './MIDINoteMapRow.svelte';
 
   export let noteMap: NoteMap;
@@ -13,10 +13,14 @@
   let jsonValue = '';
   let jsonError = '';
 
-
-  function renderProgrammingRowsFlat() {
-    // Preserve intuitive ordering: 11–19, 21–29, …, 91–99
-    return GRID_LAYOUT.flat().map((k) => ({ key: k as Note, mapping: noteMap.get(k as Note) ?? undefined }));
+  function renderTable(startIndex: number, howMany: number): { key: Key, value: MapData }[] {
+    const entries = [];
+    for (let i = startIndex; i < startIndex + howMany; i++) {
+      const key = i as Key;
+      const m = noteMap.get(key);
+      if (m) { entries.push({ key, value: m }); }
+    }
+    return entries;
   }
 
   function handleJsonChange(value: string) {
@@ -27,6 +31,16 @@
       onUpdateMap(result);
     }
   }
+  function onChangeRow(key: Key, d: MapData | undefined) {
+    if (d === undefined) {
+      const newMap = new Map(noteMap);
+      newMap.delete(key);
+      onUpdateMap(newMap);
+    } else {
+      onUpdateMap({ ...noteMap, [key]: d });
+    }
+  }
+
   onMount(() => { if (!showJson) { jsonValue = noteMapToNiceNoteMapFormat(noteMap); } });
 
   $: if (!showJson) { jsonValue = noteMapToNiceNoteMapFormat(noteMap); }
@@ -55,19 +69,33 @@
       </div>
     {:else}
       <div class="note-map-table-container single">
-        <table class="note-map-table sticky-header">
+        <table class="note-map-table">
           <thead>
-            <tr> <th>Code</th> <th>Note</th> <th>Action</th> <th>Rest</th> <th>Pressed</th> </tr>
+            <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
           </thead>
           <tbody>
-            {#each renderProgrammingRowsFlat() as { key, mapping }}
-              <MIDINoteMapRow {key} {mapping}
-                onChange={(m: NoteMapping | undefined) => {
-                  const copy = new Map(noteMap);
-                  if (m === undefined) { copy.delete(key); } else { copy.set(key, m); }
-                  onUpdateMap(copy);
-                }}
-              />
+            {#each renderTable(11, 33) as { key, value }}
+              <MIDINoteMapRow {key} {value} onChange={m => onChangeRow(key, m)}/>
+            {/each}
+          </tbody>
+        </table>
+        <table class="note-map-table">
+          <thead>
+            <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
+          </thead>
+          <tbody>
+            {#each renderTable(44, 33) as { key, value }}
+              <MIDINoteMapRow {key} {value} onChange={m => onChangeRow(key, m)}/>
+            {/each}
+          </tbody>
+        </table>
+        <table class="note-map-table">
+          <thead>
+            <tr> <th>Code</th> <th>Note</th> <th>Rest</th> <th>Pressed</th> </tr>
+          </thead>
+          <tbody>
+            {#each renderTable(77, 33) as { key, value }}
+              <MIDINoteMapRow {key} {value} onChange={m => onChangeRow(key, m)}/>
             {/each}
           </tbody>
         </table>
@@ -122,12 +150,6 @@
     background-color: var(--card-bg);
     padding: 6px;
     border-bottom: 2px solid var(--border-color);
-  }
-
-  .note-map-table.sticky-header thead th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
   }
 
   :global(.note-map-table td) {

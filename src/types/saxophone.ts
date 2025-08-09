@@ -1,5 +1,7 @@
 import { type Note, type NoteRepr, NoteName, noteReprToNote } from "./notes";
 
+export const DEFAULT_SAX_KEY = 'c';
+
 export type SaxKey =
   | 'octave'
   // standard keys
@@ -23,12 +25,35 @@ export type SaxKey =
   | 'side b♭'
   | 'side c';
 
-export const allMainKeys: SaxKey[] = [
+export const SAX_KEYS: SaxKey[] = [
+  'octave',
   'b', 'b♭ bis', 'a', 'g', 'f', 'e', 'd', 'c',
   'g♯', 'low c♯', 'low b♭', 'low b',
   'd♯', 'f♯',
-  'side b♭', 'side c'
+  'side b♭', 'side c',
 ];
+
+export const MAIN_KEYS: SaxKey[] = [
+  'b', 'a', 'g', 'f', 'e', 'd', 'c'
+];
+
+export const RIGHT_HAND_SIDE: SaxKey[] = [
+  'c',
+  'd', 'd♯',
+  'e',
+  'f', 'f♯',
+];
+
+export const LEFT_HAND_SIDE: SaxKey[] = [
+  'g', 'g♯',
+  'a',
+  'b', 'b♭ bis',
+  'low c♯', 'low b♭', 'low b',
+];
+
+export function isSaxSideNote(key: SaxKey): boolean {
+  return !MAIN_KEYS.includes(key)
+}
 
 // as they go up the saxophone
 const CANONICAL_KEY_PRIORITY: Record<SaxKey, number> = {
@@ -96,10 +121,6 @@ export function saxNote(pressed: Map<SaxKey, number>): NoteRepr | null {
   return null;
 }
 
-// Parse a saxophone key string and validate it against MainKeys
 export function parseSaxKey(saxKeyString: string): SaxKey | null {
-  if (allMainKeys.includes(saxKeyString as SaxKey)) {
-    return saxKeyString as SaxKey;
-  }
-  return null
+  return SAX_KEYS.find(key => key === saxKeyString) || null;
 }

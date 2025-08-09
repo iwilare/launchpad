@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { launchpadColorToHex, launchpadColorToTextColorHex as getColorHex, launchpadColorToTextColorHex } from '../types/colors';
+  import { launchpadColorToHex, launchpadColorToTextColorHex } from '../types/colors';
+  import { DEFAULT_COLOR, GRID_LAYOUT } from '../types/layouts';
   import { type Note } from '../types/notes';
-  import { type NoteMap, GRID_LAYOUT, DEFAULT_COLOR as DEFAULT_LAUNCHPAD_COLOR, type Controller } from '../types/ui';
+  import type { Controller, NoteMap } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
 
   export let controller: Controller;
@@ -12,19 +13,6 @@
   export let setNoteMap: (noteMap: NoteMap) => void;
 
   let colorPickerCell: Note | null = null;
-
-  function handleNoteChange(src: Note, newNote: Note) {
-    const mapping = noteMap.get(src);
-    if (mapping) {
-      const newNoteMap = new Map(noteMap);
-      if ('target' in mapping) {
-        newNoteMap.set(src, { ...mapping, target: newNote });
-      } else {
-        newNoteMap.set(src, { type: 'note', target: newNote, color: mapping.color });
-      }
-      setNoteMap(newNoteMap);
-    }
-  }
 </script>
 
 <div class="grid-keyboard-container">
@@ -40,7 +28,7 @@
             { @const isTopRight = isTopRow && isRightCol }
             <div
               class="grid-cell {controller.get(src)?.active ?? false ? 'active' : ''} {isTopRow || isRightCol ? 'special' : ''} {isTopRight ? 'disabled' : ''}"
-              style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_LAUNCHPAD_COLOR)}"
+              style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_COLOR)}"
               role="button"
               tabindex={isTopRight ? -1 : 0}
               aria-disabled={isTopRight}
@@ -59,21 +47,21 @@
                 <div class="cell-content">
                   {#if !mapping}
                     <span class="mapping-label unmapped" title="Unmapped">—</span>
-                  {:else if mapping.type === 'note'}
+                  {:else if mapping.mapping.type === 'note'}
                     <NoteInput
                       id={`note-${src}`}
-                      data={mapping.target}
-                      onChange={(newNote) => handleNoteChange(src, newNote)}
+                      data={mapping.mapping.target}
+                      onChange={() => { }}
                       asButton={true}
                       className="note-name"
-                      style="color: {launchpadColorToTextColorHex(controller.get(src)?.color ?? DEFAULT_LAUNCHPAD_COLOR)}"
+                      style="color: {launchpadColorToTextColorHex(controller.get(src)?.color ?? DEFAULT_COLOR)}"
                     />
-                  {:else if mapping.type === 'pitch'}
-                    <span class="mapping-label" title="Pitch bend mapping">Bend {mapping.bend}</span>
-                  {:else if mapping.type === 'timbre'}
-                    <span class="mapping-label" title="Timbre mapping">{mapping.waveform}</span>
-                  {:else if mapping.type === 'sax'}
-                    <span class="mapping-label" title="Sax key mapping">🎷 {mapping.saxKey}</span>
+                  {:else if mapping.mapping.type === 'pitch'}
+                    <span class="mapping-label" title="Pitch bend mapping">Bend {mapping.mapping.bend}</span>
+                  {:else if mapping.mapping.type === 'timbre'}
+                    <span class="mapping-label" title="Timbre mapping">{mapping.mapping.waveform}</span>
+                  {:else if mapping.mapping.type === 'sax'}
+                    <span class="mapping-label" title="Sax key mapping">🎷 {mapping.mapping.key}</span>
                   {/if}
                 </div>
               {/if}

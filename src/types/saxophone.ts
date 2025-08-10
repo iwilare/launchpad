@@ -57,7 +57,7 @@ export const LEFT_HAND_SIDE: SaxKey[] = [
 ];
 
 export const FINGER_KEYS: SaxKey[] = [
-  'B', 'A', 'G', 'F', 'E', 'D', 'C', 'Oct 1'
+  'B', 'A', 'G', 'G♯', 'F', 'E', 'D', 'C', 'Oct 1', 'Play'
 ];
 
 export function isMainSaxNote(key: SaxKey): boolean {
@@ -139,9 +139,9 @@ export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note {
   const n = saxNote(pressed);
   // Octave keys are additive; previously only Oct 1 was applied due to stray semicolons.
   const octave = 4 + n.octave
-    + (pressed.get('Oct 1') ?? 0)
-    + (pressed.get('Oct 2') ?? 0)
-    + (pressed.get('Oct 3') ?? 0);
+    + (1 * (pressed.get('Oct 1') ?? 0))
+    + (2 * (pressed.get('Oct 2') ?? 0))
+    + (4 * (pressed.get('Oct 3') ?? 0));
   return noteReprToNote({ ...n, octave });
 }
 

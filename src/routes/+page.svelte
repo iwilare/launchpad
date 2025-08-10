@@ -41,8 +41,7 @@
   // Sax play mode: 'press' requires Play key to sound; 'combo' auto-sounds on fingering.
   let saxMode: 'press' | 'combo' = 'press';
   // Pending scheduled change while Play is held
-  let pendingSaxChangeTimer: number | null = null;
-  let pendingSaxTarget: number | null = null;
+  let pendingSax: { timer: number, target: number } | null = null;
 
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = emptyController();
@@ -261,49 +260,37 @@
   }
 
   function clearPendingSaxChange() {
-    if (pendingSaxChangeTimer !== null) {
-      clearTimeout(pendingSaxChangeTimer);
-      pendingSaxChangeTimer = null;
-      pendingSaxTarget = null;
+    if (pendingSax !== null) {
+      clearTimeout(pendingSax.timer);
+      pendingSax = null;
     }
   }
 
   function scheduleSaxNoteChange(target: number) {
-    // If target already current, nothing to do
-    if (currentSaxNote === target) {
-      clearPendingSaxChange();
+    if (// duplicate
+        pendingSax !== null && pendingSax.target === target ||
+        // already playing the target note
+        currentSaxNote === target)
       return;
-    }
-    // If a pending change exists for same target, let it continue
-    if (pendingSaxChangeTimer !== null && pendingSaxTarget === target) return;
-    // Otherwise clear previous pending (different target or none)
     clearPendingSaxChange();
-    pendingSaxTarget = target;
-    pendingSaxChangeTimer = setTimeout(() => {
-      pendingSaxChangeTimer = null;
-      // Re-evaluate: Play must still be active and the fingering must still resolve to the same target
-      const play = saxNotes.get('Play') ?? 0;
-      if (play <= 0) {
-        // play released before timer fired
-        pendingSaxTarget = null;
-        return;
-      }
-      const currentFingeringNote = saxPressedKeysToNote(saxNotes);
-      if (currentFingeringNote !== pendingSaxTarget) {
-        // Fingering changed again; a new schedule likely exists or will be made
-        pendingSaxTarget = null;
-        return;
-      }
-      // Perform the actual switch
-      if (currentSaxNote !== null && currentSaxNote !== currentFingeringNote) {
-        releaseNoteAudio(currentSaxNote);
-      }
-      if (currentSaxNote !== currentFingeringNote) {
-        currentSaxNote = currentFingeringNote;
-        pressNoteAudio(currentSaxNote, currentSaxVelocity);
-      }
-      pendingSaxTarget = null;
-    }, saxNoteIgnoreMs) as unknown as number;
+    pendingSax = {
+      target,
+      timer: setTimeout(() => {
+          const notCleared = pendingSax !== null;
+          const playCondition = saxMode === 'press' ? saxNotes.get('Play') ?? 0 > 0 : true
+          const stillPlayingNote = saxPressedKeysToNote(saxNotes) === target
+          const notPlayingItYet = currentSaxNote !== target
+          console.log("Condition", notCleared, playCondition, stillPlayingNote, notPlayingItYet)
+          if (notCleared && playCondition && stillPlayingNote && notPlayingItYet) {
+            if (currentSaxNote !== null) {
+              releaseNoteAudio(currentSaxNote);
+            }
+            currentSaxNote = target;
+            pressNoteAudio(target, currentSaxVelocity);
+          }
+          pendingSax = null;
+      }, saxNoteIgnoreMs) as number
+    }
   }
 
   function saxStopEverything() {
@@ -312,23 +299,19 @@
     currentSaxNote = null;
   }
   function saxPlay(nextNote: Key) {
-    if (currentSaxNote === null) {
+    console.log("Sax play", nextNote)
+    clearPendingSaxChange();
+    if (currentSaxNote === null || nextNote !== currentSaxNote) {
       if (saxNoteIgnoreMs === 0) {
+        if (currentSaxNote !== null) {
+          releaseNoteAudio(currentSaxNote);
+        }
         currentSaxNote = nextNote;
         pressNoteAudio(nextNote, currentSaxVelocity);
       } else {
+        console.log("Scheduling", nextNote)
         scheduleSaxNoteChange(nextNote);
       }
-    } else if (nextNote !== currentSaxNote) {
-      if (saxNoteIgnoreMs === 0) {
-        releaseNoteAudio(currentSaxNote);
-        currentSaxNote = nextNote;
-        pressNoteAudio(nextNote, currentSaxVelocity);
-      } else {
-        scheduleSaxNoteChange(nextNote);
-      }
-    } else if (pendingSaxTarget !== null && pendingSaxTarget !== currentSaxNote) {
-      clearPendingSaxChange();
     }
   }
 
@@ -350,9 +333,12 @@
   }
 
   function saxSyncPress() {
-    if (saxNotes.get('Play') ?? 0 <= 0) {
+    console.log("Syncing saxophone in press mode", saxNotes);
+    if ((saxNotes.get('Play') ?? 0) <= 0) {
+      console.log("Stop everything", saxNotes);
       saxStopEverything()
     } else {
+      console.log("Play", saxNotes);
       saxPlay(saxPressedKeysToNote(saxNotes))
     }
   }
@@ -684,77 +670,71 @@
   </div>
 
   <div class="section">
-    <div class="mapping-container">
-      <h3>Settings</h3>
-      <div class="settings-controls">
-        <div style="display: flex; flex-direction: column; align-items: flex-start;">
-          <DefaultColorsSettings {colorSettings} onColorSettingsChange={(settings) => {
-              colorSettings = settings;
-              setNoteMap(applyColorsToMap(settings, noteMap));
-            }}
-          />
-        </div>
-        <div
-          style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;"
-        >
-          <div style="margin-bottom:8px; font-weight:600;">Saxophone Mode</div>
-          <label>
-            <input type="radio" name="sax-mode" value="press" checked={saxMode==='press'} on:change={() => { saxMode='press'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
-            Press-to-play (need Play key)
-          </label>
+    <h3>Settings</h3>
+    <div class="settings-grid">
+      <div class="settings-card">
+        <h4>Keyboard Colors</h4>
+        <DefaultColorsSettings {colorSettings} onColorSettingsChange={(settings) => {
+          colorSettings = settings;
+          setNoteMap(applyColorsToMap(settings, noteMap));
+        }} />
+        <button on:click={sendAllKeyboardColors} class="action small">Sync Keyboard</button>
+      </div>
+      <div class="settings-card">
+        <h4>Keyboard Display</h4>
+        <label>
+          <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "no"}
+            on:change={() => (showSameNotePressed = "no")} />
+          Light up only the physical button
+        </label>
+        <label>
+          <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "yes"}
+            on:change={() => (showSameNotePressed = "yes")} />
+          Light up any occurrence of the note
+        </label>
+        <label>
+          <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "octave"}
+            on:change={() => (showSameNotePressed = "octave")} />
+          Light up any occurrence of the note in any octave
+        </label>
+      </div>
+      <div class="settings-card">
+        <h4>Saxophone</h4>
+        <div class="radio-group">
           <label>
             <input type="radio" name="sax-mode" value="combo" checked={saxMode==='combo'} on:change={() => { saxMode='combo'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
-            Combo-to-play (auto on fingering)
+            Autoplays on fingering
           </label>
           <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "no"}
-              on:change={() => (showSameNotePressed = "no")} />
-            Light up only the physical button
+            <input type="radio" name="sax-mode" value="press" checked={saxMode==='press'} on:change={() => { saxMode='press'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
+            Play key only
           </label>
-          <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "yes"}
-              on:change={() => (showSameNotePressed = "yes")} />
-            Light up any occurrence of the note
-          </label>
-          <label>
-            <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "octave"}
-              on:change={() => (showSameNotePressed = "octave")} />
-            Light up any occurrence of the note in any octave
-          </label>
-          <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
-            <label for="sax-ignore-ms" style="font-weight:500;">Sax note change ignore (ms)</label>
-            <div style="display:flex; align-items:center; gap:8px;">
-              <input id="sax-ignore-ms" type="number" min="0" max="1000" step="5" bind:value={saxNoteIgnoreMs}
-                on:change={(e) => {
-                  const v = parseInt((e.target as HTMLInputElement).value);
-                  if(!isNaN(v) && v >= 0) {
-                    saxNoteIgnoreMs = v;
-                    localStorage.setItem('saxNoteIgnoreMs', saxNoteIgnoreMs.toString());
-                    // If delay reduced to 0 and a pending change exists, execute immediately
-                    if (saxNoteIgnoreMs === 0 && pendingSaxTarget !== null) {
-                      clearPendingSaxChange();
-                      const play = saxNotes.get('Play') ?? 0;
-                      if (play > 0) {
-                        const resolved = saxPressedKeysToNote(saxNotes);
-                        if (currentSaxNote !== resolved) {
-                          if (currentSaxNote !== null) releaseNoteAudio(currentSaxNote);
-                          currentSaxNote = resolved;
-                          pressNoteAudio(currentSaxNote, currentSaxVelocity);
-                        }
-                      }
+        </div>
+        <div class="sax-ignore">
+          <label for="sax-ignore-ms" class="inline-label">Transition ignore (ms)</label>
+          <input id="sax-ignore-ms" type="number" min="0" max="1000" step="5" bind:value={saxNoteIgnoreMs}
+            on:change={(e) => {
+              const v = parseInt((e.target as HTMLInputElement).value);
+              if(!isNaN(v) && v >= 0) {
+                saxNoteIgnoreMs = v;
+                localStorage.setItem('saxNoteIgnoreMs', saxNoteIgnoreMs.toString());
+                if (saxNoteIgnoreMs === 0 && pendingSax !== null) {
+                  clearPendingSaxChange();
+                  const play = saxNotes.get('Play') ?? 0;
+                  if (play > 0 || saxMode === 'combo') {
+                    const resolved = saxPressedKeysToNote(saxNotes);
+                    if (currentSaxNote !== resolved) {
+                      if (currentSaxNote !== null) releaseNoteAudio(currentSaxNote);
+                      currentSaxNote = resolved;
+                      pressNoteAudio(currentSaxNote, currentSaxVelocity);
                     }
                   }
-                }} style="width:90px;" />
-              <span style="font-size:0.85rem; opacity:0.8;">Ignore rapid sax finger transitions</span>
-            </div>
-          </div>
+                }
+              }
+            }} />
+          <span class="help-text">Ignore rapid finger transitions</span>
         </div>
       </div>
-      <button
-        on:click={sendAllKeyboardColors}
-        class="action"
-        style="margin-left: 24px;">Sync Keyboard</button
-      >
     </div>
   </div>
 
@@ -819,6 +799,31 @@
     margin-bottom: 15px;
   }
 
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    width: 100%;
+  }
+  .settings-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 12px 14px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .settings-card h4 { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; }
+  .settings-card label { font-size: 0.78rem; line-height: 1.2rem; display: flex; gap: 6px; align-items: center; }
+  .settings-card input[type=number] { width: 90px; }
+  .radio-group { display: flex; flex-direction: column; gap: 4px; }
+  .sax-ignore { display:flex; flex-direction:column; gap:4px; width:100%; }
+  .sax-ignore .inline-label { font-weight:500; font-size:0.75rem; }
+  .help-text { font-size:0.65rem; opacity:0.75; }
+  .action.small { align-self:flex-start; margin-top:4px; }
+
   .device-selector {
     display: flex;
     flex-direction: row;
@@ -866,19 +871,6 @@
     }
   }
 
-  .mapping-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
-
-  .settings-controls {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 32px;
-  }
 
   .no-devices-detected {
     color: var(--text-color);

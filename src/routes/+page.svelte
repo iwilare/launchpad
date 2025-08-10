@@ -9,17 +9,18 @@
   import GridKeyboard from "$lib/GridKeyboard.svelte";
   import LayoutGenerator from "$lib/LayoutGenerator.svelte";
   import LayoutManager from "$lib/LayoutManager.svelte";
-  import { colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
-    niceify, type LaunchpadColor,
-    type Controller, niceNoteMapToNoteMap,
+  import { colorFromSettings, type NoteState, type ShowSameNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
+    niceify,
+    type Controller,
     niceNoteMap,
-    forEachNotePressed} from "../types/ui";
+    forEachNotePressed,
+    emptyController} from "../types/ui";
   import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
-  import { SvelteMap, SvelteSet } from "svelte/reactivity";
+  import { SvelteMap } from "svelte/reactivity";
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
   import { noteToString, areSameNote, noteReprToNote } from "../types/notes";
-  import { saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
+  import { ORDERED_COMBOS, saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
   import { DEFAULT_MAPPINGS, applyColorsToMap } from "../types/layouts";
 
   let midiAccess: MIDIAccess | null = null;
@@ -37,7 +38,7 @@
   let currentSaxVelocity: number = 127;
 
   let activeNotes: NoteState = new SvelteMap();
-  let controller: Controller = new SvelteMap();
+  let controller: Controller = emptyController();
   let soundState: SoundState = emptySoundState();
 
   let deviceSettings: DeviceSettings = {
@@ -260,7 +261,6 @@
 
   function playKey(key: Key, velocity: number = 127): string | null {
     const map = noteMap.get(key);
-    console.log("Play key", key, map);
     if (!map) return "No mapping to play note";
     const k = controller.get(key);
     if (k === undefined || !k.active) {
@@ -279,7 +279,9 @@
         handleNoteColor(key, true);
         increaseNoteMut(saxNotes, m.key);
         const nextNote = saxPressedKeysToNote(saxNotes);
-        console.log("Sax", key, "next", nextNote, currentSaxNote, saxNotes)
+        console.log("Sax key being pressed:", key, "NOTE:", nextNote, "calculated note:", nextNote === null ? 'undef' : noteToString(nextNote),
+                    "current:", currentSaxNote, "all:", saxNotes,
+                  ORDERED_COMBOS)
         if(currentSaxNote !== null && nextNote !== currentSaxNote)
           releaseNoteAudio(currentSaxNote);
         const play = saxNotes.get('Play');

@@ -127,10 +127,8 @@ export function saxNote(pressed: Map<SaxKey, number>): NoteRepr | null {
 export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note | null {
   const n = saxNote(pressed)
   if(n === null) return null;
-  const oct = pressed.get('Oct');
-  if((oct ?? 0) > 0)
-    n.octave += 1;
-  return noteReprToNote(n);
+  const octave = 4 + n.octave + ((pressed.get('Oct') ?? 0) > 0 ? 1 : 0);
+  return noteReprToNote({ ...n, octave });
 }
 
 export function parseSaxKey(saxKeyString: string): SaxKey | null {

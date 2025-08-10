@@ -91,19 +91,19 @@ export function generateIsomorphicLayoutMap(
 
 const DEFAULT_SAXOPHONE_KEYS_COORDINATES: Array<{ r: number; c: number, n: SaxKey }> = [
   // Right hand
-  { c: 4, r: 0, n: 'D♯' }, { c: 3, r: 0, n: 'C' },
+  { c: 4, r: 0, n: 'D♯' }, { c: 3, r: 0, n: 'C'  },
   { c: 4, r: 1, n: 'D' },  { c: 3, r: 1, n: 'F♯' },
   { c: 4, r: 2, n: 'E' },
-  { c: 4, r: 3, n: 'F' },                  { c: 0, r: 2, n: 'Alt B♭' }, { c: 0, r: 3, n: 'Alt B♭' }, { c: 0, r: 4, n: 'Alt B♭' },
+  { c: 4, r: 3, n: 'F' },                          { c: 0, r: 2, n: 'Alt B♭' }, { c: 0, r: 3, n: 'Alt B♭' }, { c: 0, r: 4, n: 'Alt B♭' },
 
   { c: 0, r: 5, n: 'Play' }, { c: 0, r: 6, n: 'Play' },
 
   // left hand
-                                { c: 5, r: 3, n: 'Low B♭' },
-  { c: 6, r: 4, n: 'Low C♯' }, { c: 5, r: 4, n: 'G♯' }, { c: 4, r: 4, n: 'Low B' },
-                                { c: 5, r: 5, n: 'G' },
-                                { c: 5, r: 6, n: 'A' },
-                                { c: 5, r: 7, n: 'B' }, { c: 4, r: 7, n: 'B♭ bis' },
+                               { c: 5, r: 3, n: 'Low B♭' },
+  { c: 6, r: 4, n: 'Low C♯' }, { c: 5, r: 4, n: 'G♯'     }, { c: 4, r: 4, n: 'Low B' },
+                                                            { c: 4, r: 5, n: 'G' },
+                                                            { c: 4, r: 6, n: 'A' },
+                                                            { c: 4, r: 7, n: 'B' }, { c: 3, r: 7, n: 'B♭ bis' },
   { c: 7, r: 8, n: 'Oct' },
 ];
 

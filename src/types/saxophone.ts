@@ -38,7 +38,8 @@ export const CONTROL_KEYS: SaxKey[] = ['Play', 'Oct'];
 export const SAX_KEYS: SaxKey[] = CONTROL_KEYS.concat(NORMAL_KEYS)
 
 export const MAIN_KEYS: SaxKey[] = [
-  'B', 'A', 'G', 'F', 'E', 'D', 'C'
+  'B', 'A', 'G', 'G♯', 'F', 'E', 'D', 'C',
+  'Oct', 'Play'
 ];
 
 export const RIGHT_HAND_SIDE: SaxKey[] = [
@@ -90,7 +91,7 @@ export const COMBOS: Combo[] = [
   { keys: ['B', 'A', 'G', 'F', 'E', 'D'               ], note: { name: NoteName.D,       octave: 0 }, priority: 6 },
   { keys: ['B', 'A', 'G', 'F', 'E', 'D', 'D♯'         ], note: { name: NoteName.D_SHARP, octave: 0 }, priority: 7 },
   { keys: ['B', 'A', 'G', 'F', 'E',                   ], note: { name: NoteName.E,       octave: 0 }, priority: 5 },
-  { keys: ['B', 'A', 'G', 'F',                        ], note: { name: NoteName.F,       octave: 0 }, priority: 5 },
+  { keys: ['B', 'A', 'G', 'F',                        ], note: { name: NoteName.F,       octave: 0 }, priority: 4 },
   { keys: ['B', 'A', 'G', 'F', 'F♯'                   ], note: { name: NoteName.F_SHARP, octave: 0 }, priority: 5 },
   { keys: ['B', 'A', 'G', 'E',                        ], note: { name: NoteName.F_SHARP, octave: 0 }, priority: 4 },
   { keys: ['B', 'A', 'G',                             ], note: { name: NoteName.G,       octave: 0 }, priority: 3 },
@@ -112,21 +113,21 @@ export function isNormalKey(key: SaxKey): boolean {
   return NORMAL_KEYS.includes(key);
 }
 
-export function saxNote(pressed: Map<SaxKey, number>): NoteRepr | null {
+export function saxNote(pressed: Map<SaxKey, number>): NoteRepr {
+  const normalKeys =
+    Array.from(pressed.entries()
+                 .filter(([_, value]) => value > 0)
+                 .map(([key, _]) => key as SaxKey)
+                 .filter(isNormalKey));
   for (const c of ORDERED_COMBOS) {
-    // is pressed subset of combo?
-    if(pressed.entries()
-              .filter(([_, value]) => (p => (p ?? 0) > 0)(value))
-              .filter(([key, _]) => isNormalKey(key))
-              .every(([key, _]) => c.keys.includes(key)))
+    if (c.keys.every((key, _) => normalKeys.includes(key)))
       return c.note;
   }
-  return null;
+  return { name: NoteName.C_SHARP, octave: 1 };
 }
 
-export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note | null {
-  const n = saxNote(pressed)
-  if(n === null) return null;
+export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note {
+  const n = saxNote(pressed);
   const octave = 4 + n.octave + ((pressed.get('Oct') ?? 0) > 0 ? 1 : 0);
   return noteReprToNote({ ...n, octave });
 }

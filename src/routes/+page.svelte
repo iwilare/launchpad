@@ -259,6 +259,26 @@
     }
   }
 
+  function saxSync() {
+    const nextNote = saxPressedKeysToNote(saxNotes);
+    const play: number = saxNotes.get('Play') ?? 0;
+    // console.log("TEST", "plays:", play, "current:", currentSaxNote ? noteToString(currentSaxNote) : null, "next:", noteToString(nextNote), saxNotes)
+    if(play <= 0) {
+      if(currentSaxNote !== null) {
+        releaseNoteAudio(currentSaxNote);
+      }
+      currentSaxNote = null;
+    } else {
+      if(currentSaxNote !== null && currentSaxNote !== nextNote) {
+        releaseNoteAudio(currentSaxNote)
+      }
+      if(currentSaxNote === null || currentSaxNote !== nextNote) {
+        currentSaxNote = nextNote;
+        pressNoteAudio(nextNote, currentSaxVelocity);
+      }
+    }
+  }
+
   function playKey(key: Key, velocity: number = 127): string | null {
     const map = noteMap.get(key);
     if (!map) return "No mapping to play note";
@@ -278,17 +298,7 @@
         controllerInteract(key, true);
         handleNoteColor(key, true);
         increaseNoteMut(saxNotes, m.key);
-        const nextNote = saxPressedKeysToNote(saxNotes);
-        console.log("Sax key being pressed:", key, "NOTE:", nextNote, "calculated note:", nextNote === null ? 'undef' : noteToString(nextNote),
-                    "current:", currentSaxNote, "all:", saxNotes,
-                  ORDERED_COMBOS)
-        if(currentSaxNote !== null && nextNote !== currentSaxNote)
-          releaseNoteAudio(currentSaxNote);
-        const play = saxNotes.get('Play');
-        if(nextNote !== null && play !== undefined && play > 0) {
-          currentSaxNote = nextNote;
-          pressNoteAudio(nextNote, currentSaxVelocity);
-        }
+        saxSync();
       }
       return null
     } else
@@ -310,14 +320,7 @@
         controllerInteract(key, false);
         handleNoteColor(key, false);
         decreaseNoteMut(saxNotes, m.key);
-        const nextNote = saxPressedKeysToNote(saxNotes);
-        if(currentSaxNote !== null && nextNote !== currentSaxNote)
-          releaseNoteAudio(currentSaxNote);
-        const play = saxNotes.get('Play')
-        if(nextNote !== null && play !== undefined && play > 0) {
-          currentSaxNote = nextNote;
-          pressNoteAudio(nextNote, currentSaxVelocity);
-        }
+        saxSync();
       }
       return null
     } else
@@ -366,7 +369,6 @@
         `0x${messageType.toString(16).toUpperCase()}`,
       );
     }
-    console.log(description);
   }
 
   function sendProgrammerMode() {

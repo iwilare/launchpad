@@ -1,7 +1,7 @@
 import { SvelteMap } from "svelte/reactivity";
 import { DEFAULT_COLOR, DEFAULT_WHITE_REST, DEFAULT_WHITE_PRESSED, DEFAULT_BLACK_REST, DEFAULT_BLACK_PRESSED, DEFAULT_SAX_REST, DEFAULT_SAX_PRESSED, DEFAULT_SAX_SIDE_REST, DEFAULT_SAX_SIDE_PRESSED, DEFAULT_ANTI_COLOR, GRID_LAYOUT } from "./layouts";
 import { NoteNameList, type Note, type NoteRepr, NoteName, isBlackNote, stringToNoteName, noteReprToNote, noteToNoteRepr } from "./notes";
-import { isSaxSideNote, type SaxKey, type saxPressedKeysToNote } from "./saxophone";
+import { isSideSaxNote, type SaxKey, type saxPressedKeysToNote } from "./saxophone";
 
 // The Launchpad key numbers
 export type Key = number;
@@ -173,7 +173,7 @@ export const forEachNotePressed = <K>(noteState: Map<K, number>, callback: (note
 export function colorFromSettings(settings: ColorSettings, m: NoteMapping): MappingColor {
   return settings.singleColor
        ? { rest: settings.whiteRest, pressed: settings.whitePressed }
-       : (m.type == 'note' ? isBlackNote(m.target) : m.type == 'sax' ? isSaxSideNote(m.key) : false)
+       : (m.type == 'note' ? isBlackNote(m.target) : m.type == 'sax' ? isSideSaxNote(m.key) : false)
          ? { rest: settings.blackRest, pressed: settings.blackPressed }
          : { rest: settings.whiteRest, pressed: settings.whitePressed };
 }

@@ -20,7 +20,7 @@
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
   import { noteToString, areSameNote, noteReprToNote } from "../types/notes";
-  import { ORDERED_COMBOS, saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
+  import { NORMAL_KEYS, OCTAVE_KEYS, ORDERED_COMBOS, saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
   import { DEFAULT_MAPPINGS, applyColorsToMap } from "../types/layouts";
 
   let midiAccess: MIDIAccess | null = null;
@@ -38,6 +38,8 @@
   let currentSaxVelocity: number = 127;
   // Time window (ms) during which sax note changes are ignored to avoid transition artifacts
   let saxNoteIgnoreMs: number = 35;
+  // Sax play mode: 'press' requires Play key to sound; 'combo' auto-sounds on fingering.
+  let saxMode: 'press' | 'combo' = 'press';
   // Pending scheduled change while Play is held
   let pendingSaxChangeTimer: number | null = null;
   let pendingSaxTarget: number | null = null;
@@ -95,12 +97,10 @@
     }
     const selectedColor = midiAccess.outputs.get(deviceId);
     if (selectedColor) {
-      console.log("Connecting to color device", deviceId);
       selectedColorDevice = deviceId;
       sendAllKeyboardColors();
       localStorage.setItem("midiColorDevice", selectedColorDevice);
     } else {
-      console.error("Requested color device not found", deviceId);
       return "Requested color device not found";
     }
   }
@@ -108,22 +108,18 @@
   function connectToOutputDevice(deviceId: string | 42) {
     if(typeof deviceId === 'string') {
       if (!midiAccess) {
-        console.error("No midi access to connect to output device");
         return "No midi access to connect to output device";
       }
       const selectedColor = midiAccess.outputs.get(deviceId);
       if (selectedColor) {
-        console.log("Connecting to output device", deviceId);
         stopEverythingAudio();
         selectedOutputDevice = deviceId;
         localStorage.setItem("midiOutputDevice", selectedOutputDevice);
       } else {
-        console.error("Requested output device not found", deviceId);
         return "Requested output device not found";
       }
     } else {
       selectedOutputDevice = 42;
-      console.log("Connecting to default output device");
       localStorage.setItem("midiOutputDevice", 'default');
       return;
     }
@@ -310,21 +306,13 @@
     }, saxNoteIgnoreMs) as unknown as number;
   }
 
-  function saxSync() {
-    const play: number = saxNotes.get('Play') ?? 0;
-    if (play <= 0) {
-      // Play released: cancel pending and release immediately
-      clearPendingSaxChange();
-      if (currentSaxNote !== null) {
-        releaseNoteAudio(currentSaxNote);
-      }
-      currentSaxNote = null;
-      return;
-    }
-    // Play active:
-    const nextNote = saxPressedKeysToNote(saxNotes);
+  function saxStopEverything() {
+    clearPendingSaxChange();
+    if (currentSaxNote !== null) { releaseNoteAudio(currentSaxNote); }
+    currentSaxNote = null;
+  }
+  function saxPlay(nextNote: Key) {
     if (currentSaxNote === null) {
-      // If nothing sounding yet, schedule first note (or play immediately if delay == 0)
       if (saxNoteIgnoreMs === 0) {
         currentSaxNote = nextNote;
         pressNoteAudio(nextNote, currentSaxVelocity);
@@ -339,11 +327,41 @@
       } else {
         scheduleSaxNoteChange(nextNote);
       }
-    } else {
-      // Stabilized back to current; clear any pending different target
-      if (pendingSaxTarget !== null && pendingSaxTarget !== currentSaxNote) {
-        clearPendingSaxChange();
+    } else if (pendingSaxTarget !== null && pendingSaxTarget !== currentSaxNote) {
+      clearPendingSaxChange();
+    }
+  }
+
+  function saxSyncCombo() {
+    const play: number = saxNotes.get('Play') ?? 0;
+    const anyOctave = OCTAVE_KEYS.some(k => (saxNotes.get(k) ?? 0) > 0);
+    const anyNormal = NORMAL_KEYS.some(k => (saxNotes.get(k) ?? 0) > 0);
+    const fingeredNote = saxPressedKeysToNote(saxNotes);
+
+    if(!anyNormal) {
+      if(anyOctave || play > 0) {
+        saxPlay(fingeredNote);
+      } else {
+        saxStopEverything();
       }
+    } else {
+      saxPlay(fingeredNote)
+    }
+  }
+
+  function saxSyncPress() {
+    if (saxNotes.get('Play') ?? 0 <= 0) {
+      saxStopEverything()
+    } else {
+      saxPlay(saxPressedKeysToNote(saxNotes))
+    }
+  }
+
+  function saxSync() {
+    if (saxMode === 'combo') {
+      saxSyncCombo()
+    } else {
+      saxSyncPress()
     }
   }
 
@@ -548,6 +566,8 @@
         const parsed = parseInt(ignore);
         if(!isNaN(parsed) && parsed >= 0) saxNoteIgnoreMs = parsed;
       }
+  const savedMode = localStorage.getItem('saxMode');
+  if (savedMode === 'combo' || savedMode === 'press') saxMode = savedMode;
     }
   });
 
@@ -677,6 +697,15 @@
         <div
           style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 10px;"
         >
+          <div style="margin-bottom:8px; font-weight:600;">Saxophone Mode</div>
+          <label>
+            <input type="radio" name="sax-mode" value="press" checked={saxMode==='press'} on:change={() => { saxMode='press'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
+            Press-to-play (need Play key)
+          </label>
+          <label>
+            <input type="radio" name="sax-mode" value="combo" checked={saxMode==='combo'} on:change={() => { saxMode='combo'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
+            Combo-to-play (auto on fingering)
+          </label>
           <label>
             <input type="radio" name="show-same-note-pressed" checked={showSameNotePressed === "no"}
               on:change={() => (showSameNotePressed = "no")} />

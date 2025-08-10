@@ -14,8 +14,8 @@ export interface SoundSettings {
 export type SoundState = {
   audioContext: AudioContext | null;
   activeNotes: Map<Note, {
-    oscillator: OscillatorNode, 
-    gainNode: GainNode, 
+    oscillator: OscillatorNode,
+    gainNode: GainNode,
     number: number; // number of times the note is supposed to be playing
   }>
 }
@@ -28,7 +28,7 @@ export function initializeSoundState(): SoundState {
     return { ...emptySoundState(), audioContext: new window.AudioContext() }
 }
 
-export function releaseNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: number) { 
+export function releaseNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: number) {
     const n = ss.activeNotes.get(note);
     if (n) {
         if (n.number > 1) {
@@ -60,10 +60,10 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
 
         oscillator.type = sc.waveform;
         oscillator.frequency.setValueAtTime(440 * Math.pow(2, (note - 69) / 12), ss.audioContext.currentTime);
-        
+
         gainNode.gain.setValueAtTime(EXPONENTIAL_VALUE, ss.audioContext.currentTime);
         gainNode.gain.exponentialRampToValueAtTime(
-            Math.max(EXPONENTIAL_VALUE, velocity * sc.volume * VOLUME_MULTIPLIER), 
+            Math.max(EXPONENTIAL_VALUE, velocity * sc.volume * VOLUME_MULTIPLIER),
             ss.audioContext.currentTime + sc.attackTime / 1000
         );
         oscillator.connect(gainNode);

@@ -1,3 +1,4 @@
+import { SvelteMap } from "svelte/reactivity";
 import { isBlackNote, type Note } from "./notes";
 import type { SaxKey } from "./saxophone";
 import { type NoteMapping, type MappingColor, type NoteMap, type LaunchpadColor, colorFromSettings, type ColorSettings } from "./ui";
@@ -78,7 +79,7 @@ export function generateIsomorphicLayoutMap(
   verticalStep: number,
   colorForTarget: (note: Note) => MappingColor,
 ): NoteMap {
-  const noteMap: NoteMap = new Map();
+  const noteMap: NoteMap = new SvelteMap();
   GRID_LAYOUT.forEach((row, rowIndex) => {
     row.forEach((source, colIndex) => {
       const target = (startNote + (colIndex * horizontalStep) + (rowIndex * verticalStep)) as Note;
@@ -107,7 +108,7 @@ const DEFAULT_SAXOPHONE_KEYS_COORDINATES: Array<{ r: number; c: number, n: SaxKe
 ];
 
 export function generateSaxophoneLayoutMap(colorForNote: (note: NoteMapping) => MappingColor): NoteMap {
-  const map: NoteMap = new Map();
+  const map: NoteMap = new SvelteMap();
   DEFAULT_SAXOPHONE_KEYS_COORDINATES.forEach(({ r, c, n }) => {
     if (0 <= r && r < GRID_LAYOUT.length && 0 <= c && c < GRID_LAYOUT[r].length) {
       const source = GRID_LAYOUT[r][c];
@@ -119,15 +120,15 @@ export function generateSaxophoneLayoutMap(colorForNote: (note: NoteMapping) => 
 }
 
 export function applyColorsToMap(settings: ColorSettings, noteMap: NoteMap): NoteMap {
-  const newNoteMap: NoteMap = new Map();
-  noteMap.forEach(({ mapping, color }, note) => {
+  const newNoteMap: NoteMap = new SvelteMap();
+  noteMap.forEach(({ mapping }, note) => {
     newNoteMap.set(note, { mapping, color: colorFromSettings(settings, mapping), });
   });
   return newNoteMap;
 }
 
 export function generateFromDeltaMap(deltaMap: number[][], startNote: Note, getNoteColor: (mapping: NoteMapping) => MappingColor) {
-  const noteMap: NoteMap = new Map();
+  const noteMap: NoteMap = new SvelteMap();
   GRID_LAYOUT.forEach((row, rowIndex) => {
     row.forEach((source, colIndex) => {
       const target = (startNote + deltaMap[rowIndex][colIndex]) as Note;

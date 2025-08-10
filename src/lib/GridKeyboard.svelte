@@ -1,7 +1,7 @@
 <script lang="ts">
   import { launchpadColorToHex, launchpadColorToTextColorHex } from '../types/colors';
   import { DEFAULT_COLOR, GRID_LAYOUT } from '../types/layouts';
-  import { type Note } from '../types/notes';
+  import { noteToString, type Note } from '../types/notes';
   import type { Controller, NoteMap } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
 
@@ -28,7 +28,8 @@
             { @const isTopRight = isTopRow && isRightCol }
             <div
               class="grid-cell {controller.get(src)?.active ?? false ? 'active' : ''} {isTopRow || isRightCol ? 'special' : ''} {isTopRight ? 'disabled' : ''}"
-              style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_COLOR)}"
+              style="background-color: {launchpadColorToHex(controller.get(src)?.color ?? DEFAULT_COLOR)};
+                     color: {launchpadColorToTextColorHex(controller.get(src)?.color ?? DEFAULT_COLOR)}"
               role="button"
               tabindex={isTopRight ? -1 : 0}
               aria-disabled={isTopRight}
@@ -48,14 +49,7 @@
                   {#if !mapping}
                     <span class="mapping-label unmapped" title="Unmapped">—</span>
                   {:else if mapping.mapping.type === 'note'}
-                    <NoteInput
-                      id={`note-${src}`}
-                      data={mapping.mapping.target}
-                      onChange={() => { }}
-                      asButton={true}
-                      className="note-name"
-                      style="color: {launchpadColorToTextColorHex(controller.get(src)?.color ?? DEFAULT_COLOR)}"
-                    />
+                    <span class="mapping-label" title="Note">{noteToString(mapping.mapping.target)}</span>
                   {:else if mapping.mapping.type === 'pitch'}
                     <span class="mapping-label" title="Pitch bend mapping">Bend {mapping.mapping.bend}</span>
                   {:else if mapping.mapping.type === 'timbre'}
@@ -71,24 +65,6 @@
         {/key}
       {/each}
     </div>
-    <!-- {#if colorPickerCell}
-      <div class="color-picker-cell">
-        <div class="color-picker-cell-content">
-          <div class="color-picker-cell-color">
-            <FloatingColorPicker
-              on:colorChange={(color) => {
-                const mapping = noteMap.get(colorPickerCell);
-                if (mapping) {
-                  const newNoteMap = new Map(noteMap);
-                  newNoteMap.set(colorPickerCell, { ...mapping, color: { ...mapping.color, rest: color } });
-                  setNoteMap(newNoteMap);
-                }
-              }}
-            />
-          </div>
-        </div>
-      </div>
-    {/if} -->
   </div>
 </div>
 

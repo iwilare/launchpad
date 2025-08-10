@@ -2,7 +2,7 @@
   import "../static/app.css";
 
   import { onMount } from "svelte";
-  import MIDINoteMap from "$lib/MIDINoteMap.svelte";
+  import MIDINoteMap from "$lib/JsonEditor.svelte";
   import SoundGenerator from "$lib/SoundGenerator.svelte";
   import DefaultColorsSettings from "$lib/DefaultColorsSettings.svelte";
   import ThemeToggle from "$lib/ThemeToggle.svelte";
@@ -10,7 +10,7 @@
   import LayoutGenerator from "$lib/LayoutGenerator.svelte";
   import LayoutManager from "$lib/LayoutManager.svelte";
   import { colorFromSettings, type NoteState, type ShowSameNote, isActiveNote, isLastNote, increaseNoteMut, decreaseNoteMut, type ColorSettings, type DeviceSettings, type NoteMap,
-    noteMapToNiceNoteMapFormat, type LaunchpadColor,
+    niceify, type LaunchpadColor,
     type Controller, niceNoteMapToNoteMap,
     niceNoteMap,
     forEachNotePressed} from "../types/ui";
@@ -384,9 +384,9 @@
   }
 
   function sendAllKeyboardColors() {
-    console.log("Sending all keyboard colors");
-    noteMap.forEach((_, note) => {
-      controllerInteract(note, false);
+    console.log("Sending all keyboard colors", controller, noteMap);
+    controller.keys().forEach(k => {
+      controllerInteract(k, false);
     });
     sendProgrammerMode();
     sendBrightness();
@@ -396,7 +396,7 @@
     stopEverythingAudio();
     noteMap = newNoteMap;
     sendAllKeyboardColors();
-    localStorage.setItem("noteMap", noteMapToNiceNoteMapFormat(noteMap));
+    localStorage.setItem("noteMap", niceify(noteMap));
   }
 
   // Function to update brightness, persist, and send MIDI
@@ -623,8 +623,7 @@
   <div class="section">
     <MIDINoteMap {noteMap} onUpdateMap={setNoteMap} />
     <button
-      style="margin-top: 10px;"
-  on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))}
+      style="margin-top: 10px;" on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))}
       class="action">Reset Keyboard Layout</button
     >
   </div>
@@ -634,7 +633,7 @@
   .App {
     text-align: center;
     min-height: 100vh;
-    min-width: 1000px;
+    min-width: 80vh;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-color);
@@ -642,7 +641,7 @@
     transition:
       background-color var(--transition-speed),
       color var(--transition-speed);
-    width: 45%;
+    width: 50%;
   }
 
   .App-header {

@@ -4,6 +4,7 @@ import { GRID_LAYOUT, generateFromDeltaMap, DEFAULT_DELTA_MAP, EXTRA_DELTA_MAP, 
 import type { Note } from "../types/notes";
 import type { NoteMap, NoteMapping, MappingColor } from "../types/ui";
 import NoteInput from "./NoteInput.svelte";
+    import { SvelteMap } from "svelte/reactivity";
 
 export let onUpdateMapping: (newNoteMap: NoteMap) => void;
 export let getNoteColor: (note: NoteMapping) => MappingColor;
@@ -13,7 +14,7 @@ let horizontalStep = writable<number>(2); // Wicky-Hayden
 let verticalStep = writable<number>(5);
 
 function generateIsomorphicLayout() {
-  const noteMap: NoteMap = new Map();
+  const noteMap: NoteMap = new SvelteMap();
 
   GRID_LAYOUT.forEach((row, rowIndex) => {
     row.forEach((source, colIndex) => {

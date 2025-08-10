@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { niceNoteMap, noteMapToNiceNoteMapFormat, type NoteMap } from '../types/ui';
+  import { niceNoteMap, niceify, type NoteMap } from '../types/ui';
 
   export let noteMap: NoteMap;
   export let onRestoreMap: (newMap: NoteMap) => void;
@@ -30,7 +30,7 @@
   function saveCurrent() {
     error = null;
     const name = newName.trim() || `Layout ${new Date().toLocaleString()}`;
-    const data = noteMapToNiceNoteMapFormat(noteMap);
+    const data = niceify(noteMap);
     const idx = layouts.findIndex((l) => l.name === name);
     if (idx >= 0) {
       // overwrite existing

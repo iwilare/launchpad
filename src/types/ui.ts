@@ -1,3 +1,4 @@
+import { SvelteMap } from "svelte/reactivity";
 import { DEFAULT_COLOR, DEFAULT_WHITE_REST, DEFAULT_WHITE_PRESSED, DEFAULT_BLACK_REST, DEFAULT_BLACK_PRESSED, DEFAULT_SAX_REST, DEFAULT_SAX_PRESSED, DEFAULT_SAX_SIDE_REST, DEFAULT_SAX_SIDE_PRESSED, DEFAULT_ANTI_COLOR } from "./layouts";
 import { NoteNameList, type Note, type NoteRepr, NoteName, isBlackNote, stringToNoteName, noteReprToNote, noteToNoteRepr } from "./notes";
 import { isSaxSideNote, type SaxKey, type saxPressedKeysToNote } from "./saxophone";
@@ -68,7 +69,7 @@ export function niceNoteMapParse(value: string): NiceNoteMap | string {
 }
 
 export function niceNoteMapToNoteMap(m: NiceNoteMap): NoteMap | string {
-  const newMap: NoteMap = new Map();
+  const newMap: NoteMap = new SvelteMap();
   for (const mm of m) {
     const rest = mm.r ?? DEFAULT_COLOR;
     const pressed = mm.p ?? DEFAULT_COLOR;
@@ -101,27 +102,21 @@ export function niceNoteMap(value: string): NoteMap | string {
   return niceNoteMapToNoteMap(parsed);
 }
 
-export function noteMapToNiceNoteMapFormat(noteMap: NoteMap): string {
-  const out: NiceNoteMap = [];
-  noteMap.forEach((value, k) => {
-    const { mapping, color } = value;
-    switch (mapping.type) {
-      case 'note': {
-        const repr = noteToNoteRepr(mapping.target);
-        out.push({ k, type: 'note', n: repr.name, o: repr.octave, r: color.rest, p: color.pressed });
-        break; }
-      case 'pitch':
-        out.push({ k, type: 'pitch', b: mapping.bend, r: color.rest, p: color.pressed });
-        break;
-      case 'timbre':
-        out.push({ k, type: 'timbre', w: mapping.waveform, r: color.rest, p: color.pressed });
-        break;
-      case 'sax':
-        out.push({ k, type: 'sax', s: mapping.key, r: color.rest, p: color.pressed });
-        break;
+export function niceify(noteMap: NoteMap): string {
+  const lines: string[] = [];
+  noteMap.forEach(({ mapping, color }, k) => {
+    if (mapping.type === 'note') {
+      const repr = noteToNoteRepr(mapping.target);
+      lines.push(`  {"k":${k},"type":"note","n":"${repr.name}","o":${repr.octave},"r":${color.rest},"p":${color.pressed}}`);
+    } else if (mapping.type === 'pitch') {
+      lines.push(`  {"k":${k},"type":"pitch","b":${mapping.bend},"r":${color.rest},"p":${color.pressed}}`);
+    } else if (mapping.type === 'timbre') {
+      lines.push(`  {"k":${k},"type":"timbre","w":"${mapping.waveform}","r":${color.rest},"p":${color.pressed}}`);
+    } else if (mapping.type === 'sax') {
+      lines.push(`  {"k":${k},"type":"sax","s":"${mapping.key}","r":${color.rest},"p":${color.pressed}}`);
     }
   });
-  return JSON.stringify(out, null, 2);
+  return '[\n' + lines.join(',\n') + '\n]';
 }
 
 export interface DeviceSettings {
@@ -171,7 +166,6 @@ export const forEachNotePressed = <K>(noteState: Map<K, number>, callback: (note
         }
     });
 };
-
 
 export function colorFromSettings(settings: ColorSettings, m: NoteMapping): MappingColor {
   return m.type == 'note' ?

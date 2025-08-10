@@ -40,7 +40,7 @@
 
 <tr class={mapping !== undefined && mapping.type === 'note' && isBlackNote(mapping.target) ? 'black-key' : ''}>
   <td>{key}</td>
-  <td>
+  <td class="row-data">
     <select
       class="type-select"
       value={mapping ? mapping.type : 'none'}
@@ -65,6 +65,7 @@
         <input
           type="number"
           value={mapping.bend}
+          style="width: 44px;"
           on:input={(e) => onChange(value && { mapping: { ...mapping, bend: parseFloat(e.currentTarget.value) }, color: value.color })}
           min="-1"
           max="1"
@@ -73,6 +74,7 @@
       {:else if mapping.type === 'timbre'}
         <select
           value={mapping.waveform}
+          style="width: 64px;"
           on:change={(e) => onChange(value && { mapping: { ...mapping, waveform: e.currentTarget.value as OscillatorType }, color: value.color })}
         >
           <option value="sine">Sine</option>
@@ -127,14 +129,6 @@
     border-bottom: 1px solid var(--border-color);
   }
 
-  td:nth-child(2) {
-    padding: 3px 10px;
-  }
-
-  td:nth-child(3) {
-    padding: 3px 20px 3px 20px;
-  }
-
   .type-select {
     padding: 4px 8px;
     border: 1px solid var(--border-color);
@@ -145,13 +139,18 @@
     text-transform: lowercase;
   }
 
-  .input-container,
-  .button-container {
+  .input-container {
     display: flex;
+    direction: row;
     justify-content: center;
     align-items: center;
     width: 100%;
     height: 100%;
+  }
+
+  .row-data {
+    display: flex;
+    flex-direction: row;
   }
 
   input[type="number"],

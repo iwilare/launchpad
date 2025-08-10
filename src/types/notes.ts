@@ -1,5 +1,3 @@
-import type { SaxKey } from "./saxophone";
-
 // Note name enum with both sharp and flat representations
 export enum NoteName {
   C = 'C',

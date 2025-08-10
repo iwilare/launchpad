@@ -4,7 +4,9 @@ export const DEFAULT_SAX_KEY = 'C';
 
 export type SaxKey =
   | 'Play'
-  | 'Oct'
+  | 'Oct 1'
+  | 'Oct 2'
+  | 'Oct 3'
   // standard keys
   | 'B'
   | 'B♭ bis'
@@ -33,13 +35,10 @@ export const NORMAL_KEYS: SaxKey[] = [
   'Alt B♭', 'Alt C',
 ];
 
-export const CONTROL_KEYS: SaxKey[] = ['Play', 'Oct'];
+export const SAX_KEYS: SaxKey[] = NORMAL_KEYS.concat(['Play', 'Oct 1', 'Oct 2', 'Oct 3']);
 
-export const SAX_KEYS: SaxKey[] = CONTROL_KEYS.concat(NORMAL_KEYS)
-
-export const MAIN_KEYS: SaxKey[] = [
+export const DIATONIC_KEYS: SaxKey[] = [
   'B', 'A', 'G', 'G♯', 'F', 'E', 'D', 'C',
-  'Oct', 'Play'
 ];
 
 export const RIGHT_HAND_SIDE: SaxKey[] = [
@@ -55,31 +54,35 @@ export const LEFT_HAND_SIDE: SaxKey[] = [
   'Low C♯', 'Low B♭', 'Low B',
 ];
 
+export function isMainSaxNote(key: SaxKey): boolean {
+  return DIATONIC_KEYS.includes(key) || typeof key === 'object' || key == 'Play';
+}
+
 export function isSaxSideNote(key: SaxKey): boolean {
-  return !MAIN_KEYS.includes(key)
+  return !isMainSaxNote(key);
 }
 
 // as they go up the saxophone
-const CANONICAL_KEY_PRIORITY: Record<SaxKey, number> = {
-  'Low B♭': 0,
-  'Low B': 1,
-  'C': 2,
-  'Low C♯': 3,
-  'D': 4,
-  'D♯': 5,
-  'E': 6,
-  'F': 7,
-  'F♯': 8,
-  'G': 9,
-  'G♯': 10,
-  'A': 11,
-  'Alt B♭': 12,
-  'B♭ bis': 12.5,
-  'B': 13,
-  'Alt C': 14,
-  'Oct': 15,
-  'Play': 999
-}
+// const CANONICAL_KEY_PRIORITY: Record<SaxKey, number> = {
+//   'Low B♭': 0,
+//   'Low B': 1,
+//   'C': 2,
+//   'Low C♯': 3,
+//   'D': 4,
+//   'D♯': 5,
+//   'E': 6,
+//   'F': 7,
+//   'F♯': 8,
+//   'G': 9,
+//   'G♯': 10,
+//   'A': 11,
+//   'Alt B♭': 12,
+//   'B♭ bis': 12.5,
+//   'B': 13,
+//   'Alt C': 14,
+//   'Oct': 15,
+//   'Play': 999
+// }
 
 type Combo = { keys: SaxKey[]; note: NoteRepr, priority: number };
 
@@ -128,7 +131,10 @@ export function saxNote(pressed: Map<SaxKey, number>): NoteRepr {
 
 export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note {
   const n = saxNote(pressed);
-  const octave = 4 + n.octave + ((pressed.get('Oct') ?? 0) > 0 ? 1 : 0);
+  const octave = 4 + n.octave
+                   + (pressed.get('Oct 1') ?? 0);
+                   + (pressed.get('Oct 2') ?? 0);
+                   + (pressed.get('Oct 3') ?? 0);
   return noteReprToNote({ ...n, octave });
 }
 

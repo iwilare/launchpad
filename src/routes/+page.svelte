@@ -36,6 +36,11 @@
   let saxNotes: Map<SaxKey, number> = new SvelteMap();
   let currentSaxNote: number | null = null;
   let currentSaxVelocity: number = 127;
+  // Time window (ms) during which sax note changes are ignored to avoid transition artifacts
+  let saxNoteIgnoreMs: number = 35;
+  // Pending scheduled change while Play is held
+  let pendingSaxChangeTimer: number | null = null;
+  let pendingSaxTarget: number | null = null;
 
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = emptyController();
@@ -259,22 +264,85 @@
     }
   }
 
+  function clearPendingSaxChange() {
+    if (pendingSaxChangeTimer !== null) {
+      clearTimeout(pendingSaxChangeTimer);
+      pendingSaxChangeTimer = null;
+      pendingSaxTarget = null;
+    }
+  }
+
+  function scheduleSaxNoteChange(target: number) {
+    // If target already current, nothing to do
+    if (currentSaxNote === target) {
+      clearPendingSaxChange();
+      return;
+    }
+    // If a pending change exists for same target, let it continue
+    if (pendingSaxChangeTimer !== null && pendingSaxTarget === target) return;
+    // Otherwise clear previous pending (different target or none)
+    clearPendingSaxChange();
+    pendingSaxTarget = target;
+    pendingSaxChangeTimer = setTimeout(() => {
+      pendingSaxChangeTimer = null;
+      // Re-evaluate: Play must still be active and the fingering must still resolve to the same target
+      const play = saxNotes.get('Play') ?? 0;
+      if (play <= 0) {
+        // play released before timer fired
+        pendingSaxTarget = null;
+        return;
+      }
+      const currentFingeringNote = saxPressedKeysToNote(saxNotes);
+      if (currentFingeringNote !== pendingSaxTarget) {
+        // Fingering changed again; a new schedule likely exists or will be made
+        pendingSaxTarget = null;
+        return;
+      }
+      // Perform the actual switch
+      if (currentSaxNote !== null && currentSaxNote !== currentFingeringNote) {
+        releaseNoteAudio(currentSaxNote);
+      }
+      if (currentSaxNote !== currentFingeringNote) {
+        currentSaxNote = currentFingeringNote;
+        pressNoteAudio(currentSaxNote, currentSaxVelocity);
+      }
+      pendingSaxTarget = null;
+    }, saxNoteIgnoreMs) as unknown as number;
+  }
+
   function saxSync() {
-    const nextNote = saxPressedKeysToNote(saxNotes);
     const play: number = saxNotes.get('Play') ?? 0;
-    // console.log("TEST", "plays:", play, "current:", currentSaxNote ? noteToString(currentSaxNote) : null, "next:", noteToString(nextNote), saxNotes)
-    if(play <= 0) {
-      if(currentSaxNote !== null) {
+    if (play <= 0) {
+      // Play released: cancel pending and release immediately
+      clearPendingSaxChange();
+      if (currentSaxNote !== null) {
         releaseNoteAudio(currentSaxNote);
       }
       currentSaxNote = null;
-    } else {
-      if(currentSaxNote !== null && currentSaxNote !== nextNote) {
-        releaseNoteAudio(currentSaxNote)
-      }
-      if(currentSaxNote === null || currentSaxNote !== nextNote) {
+      return;
+    }
+    // Play active:
+    const nextNote = saxPressedKeysToNote(saxNotes);
+    if (currentSaxNote === null) {
+      // If nothing sounding yet, schedule first note (or play immediately if delay == 0)
+      if (saxNoteIgnoreMs === 0) {
         currentSaxNote = nextNote;
         pressNoteAudio(nextNote, currentSaxVelocity);
+      } else {
+        scheduleSaxNoteChange(nextNote);
+      }
+    } else if (nextNote !== currentSaxNote) {
+      if (saxNoteIgnoreMs === 0) {
+        releaseNoteAudio(currentSaxNote);
+        currentSaxNote = nextNote;
+        pressNoteAudio(nextNote, currentSaxVelocity);
+      } else {
+        scheduleSaxNoteChange(nextNote);
+      }
+    } else {
+      // Stabilized back to current; clear any pending different target
+      if (pendingSaxTarget !== null && pendingSaxTarget !== currentSaxNote) {
+        clearPendingSaxChange();
       }
     }
   }
@@ -473,6 +541,16 @@
     }
   });
 
+  onMount(() => {
+    if (typeof localStorage !== 'undefined') {
+      const ignore = localStorage.getItem('saxNoteIgnoreMs');
+      if (typeof ignore === 'string') {
+        const parsed = parseInt(ignore);
+        if(!isNaN(parsed) && parsed >= 0) saxNoteIgnoreMs = parsed;
+      }
+    }
+  });
+
   // Initialize MIDI access and devices
   onMount(() => {
     initializeMIDIAccess();
@@ -614,6 +692,33 @@
               on:change={() => (showSameNotePressed = "octave")} />
             Light up any occurrence of the note in any octave
           </label>
+          <div style="margin-top:8px; display:flex; flex-direction:column; gap:4px;">
+            <label for="sax-ignore-ms" style="font-weight:500;">Sax note change ignore (ms)</label>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <input id="sax-ignore-ms" type="number" min="0" max="1000" step="5" bind:value={saxNoteIgnoreMs}
+                on:change={(e) => {
+                  const v = parseInt((e.target as HTMLInputElement).value);
+                  if(!isNaN(v) && v >= 0) {
+                    saxNoteIgnoreMs = v;
+                    localStorage.setItem('saxNoteIgnoreMs', saxNoteIgnoreMs.toString());
+                    // If delay reduced to 0 and a pending change exists, execute immediately
+                    if (saxNoteIgnoreMs === 0 && pendingSaxTarget !== null) {
+                      clearPendingSaxChange();
+                      const play = saxNotes.get('Play') ?? 0;
+                      if (play > 0) {
+                        const resolved = saxPressedKeysToNote(saxNotes);
+                        if (currentSaxNote !== resolved) {
+                          if (currentSaxNote !== null) releaseNoteAudio(currentSaxNote);
+                          currentSaxNote = resolved;
+                          pressNoteAudio(currentSaxNote, currentSaxVelocity);
+                        }
+                      }
+                    }
+                  }
+                }} style="width:90px;" />
+              <span style="font-size:0.85rem; opacity:0.8;">Ignore rapid sax finger transitions</span>
+            </div>
+          </div>
         </div>
       </div>
       <button

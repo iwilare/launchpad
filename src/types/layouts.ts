@@ -103,8 +103,8 @@ const DEFAULT_SAXOPHONE_KEYS_COORDINATES: Array<{ r: number; c: number, n: SaxKe
   { c: 6, r: 4, n: 'Low C♯' }, { c: 5, r: 4, n: 'G♯'     }, { c: 4, r: 4, n: 'Low B' },
                                                             { c: 4, r: 5, n: 'G' },
                                                             { c: 4, r: 6, n: 'A' },
-                                                            { c: 4, r: 7, n: 'B' }, { c: 3, r: 7, n: 'B♭ bis' },
-  { c: 7, r: 8, n: 'Oct' },
+                              { c: 5, r: 7, n: 'B♭ bis' },  { c: 4, r: 7, n: 'B' },
+  { c: 7, r: 8, n: 'Oct 1' }, { c: 6, r: 8, n: 'Oct 2' },
 ];
 
 export function generateSaxophoneLayoutMap(colorForNote: (note: NoteMapping) => MappingColor): NoteMap {

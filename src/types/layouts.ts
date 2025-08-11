@@ -64,6 +64,8 @@ export const EXTRA_DELTA_MAP: number[][] = [
   [48, 50, 52, 53, 55, 57, 59, 60, 62],
 ]
 
+export const emptyMapping: () => NoteMap = () => new SvelteMap();
+
 // Default note mappings for the entire range (36-99)
 export const DEFAULT_MAPPINGS: NoteMap = generateIsomorphicLayoutMap(
   DEFAULT_START_NOTE,

@@ -15,13 +15,13 @@
     niceNoteMap,
     forEachNotePressed,
     emptyController} from "../types/ui";
-  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, type SoundState, type SoundSettings, } from "../types/sound";
+  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, updateActiveNoteVolumes, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap } from "svelte/reactivity";
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
   import { noteToString, areSameNote, noteReprToNote } from "../types/notes";
   import { NORMAL_KEYS, OCTAVE_KEYS, ORDERED_COMBOS, saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
-  import { DEFAULT_MAPPINGS, applyColorsToMap } from "../types/layouts";
+  import { DEFAULT_MAPPINGS, applyColorsToMap, emptyMapping } from "../types/layouts";
 
   let midiAccess: MIDIAccess | null = null;
   let selectedInputDevice: string | null = null;
@@ -492,10 +492,12 @@
       localStorage.setItem("sound_volume", settings.volume.toString());
       localStorage.setItem("sound_waveform", settings.waveform);
     }
+  updateActiveNoteVolumes(soundState, soundSettings);
   }
 
   onMount(() => {
     soundState = initializeSoundState();
+  updateActiveNoteVolumes(soundState, soundSettings);
   });
 
   onMount(() => {
@@ -516,6 +518,23 @@
       if (typeof maybeMap !== "string") {
         noteMap = maybeMap;
       }
+    }
+    // Restore color settings if present
+    const cs = localStorage.getItem('colorSettings');
+    if (cs) {
+      try {
+        const parsed = JSON.parse(cs);
+        if (parsed && typeof parsed === 'object') {
+          const maybe: any = parsed;
+          if (typeof maybe.singleColor === 'boolean'
+              && typeof maybe.whiteRest === 'number'
+              && typeof maybe.whitePressed === 'number'
+              && typeof maybe.blackRest === 'number'
+              && typeof maybe.blackPressed === 'number') {
+            colorSettings = maybe;
+          }
+        }
+      } catch { /* ignore */ }
     }
   });
 
@@ -676,9 +695,14 @@
         <h4>Keyboard Colors</h4>
         <DefaultColorsSettings {colorSettings} onColorSettingsChange={(settings) => {
           colorSettings = settings;
+          // Persist color settings
+          try { localStorage.setItem('colorSettings', JSON.stringify(colorSettings)); } catch {}
           setNoteMap(applyColorsToMap(settings, noteMap));
         }} />
-        <button on:click={sendAllKeyboardColors} class="action small">Sync Keyboard</button>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button on:click={sendAllKeyboardColors} class="action small">Sync Keyboard</button>
+          <button on:click={() => { setNoteMap(emptyMapping()); }} class="action small" title="Reset mappings to defaults">Reset All Mappings</button>
+        </div>
       </div>
       <div class="settings-card">
         <h4>Keyboard Display</h4>
@@ -703,11 +727,11 @@
         <div class="radio-group">
           <label>
             <input type="radio" name="sax-mode" value="combo" checked={saxMode==='combo'} on:change={() => { saxMode='combo'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
-            Autoplays on fingering
+            Autoplay
           </label>
           <label>
             <input type="radio" name="sax-mode" value="press" checked={saxMode==='press'} on:change={() => { saxMode='press'; localStorage.setItem('saxMode', saxMode); saxSync(); }} />
-            Play key only
+            Only on 'Play' key
           </label>
         </div>
         <div class="sax-ignore">

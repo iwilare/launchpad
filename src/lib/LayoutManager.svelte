@@ -85,7 +85,7 @@
 <div class="layout-manager">
   <div class="save-row">
     <input type="text" placeholder="Layout name" bind:value={newName} />
-    <button class="action" on:click={saveCurrent}>Save</button>
+  <button class="btn" on:click={saveCurrent}>Save</button>
   </div>
 
   {#if error}
@@ -97,8 +97,8 @@
       {#if renamingIndex === i}
         <div class="chip editing">
           <input class="rename" type="text" bind:value={renameValue} />
-          <button class="action" on:click={() => applyRename(i)}>Save</button>
-          <button class="secondary" on:click={() => { renamingIndex = null; renameValue = ''; }}>Cancel</button>
+          <button class="btn" on:click={() => applyRename(i)}>Save</button>
+          <button class="btn" on:click={() => { renamingIndex = null; renameValue = ''; }}>Cancel</button>
         </div>
       {:else}
         <div
@@ -123,7 +123,7 @@
             }}
           >×</button>
         </div>
-        <button class="secondary small" on:click={() => startRename(i)} title="Rename">✎</button>
+  <button class="btn small" on:click={() => startRename(i)} title="Rename">✎</button>
       {/if}
     {/each}
     {#if layouts.length === 0}
@@ -133,9 +133,9 @@
 </div>
 
 <style>
-  .layout-manager { display: flex; flex-direction: column; gap: 10px; }
+  .layout-manager { display:flex; flex-direction:column; gap:10px; }
   .save-row { display: flex; gap: 8px; align-items: center; }
-  .chip-list { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip-list { display:flex; gap:8px; flex-wrap:wrap; }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); cursor: pointer; }
   .chip { border: 1px solid var(--border-color); background: var(--card-bg); }
   .chip, .chip * { font: inherit; }
@@ -143,12 +143,11 @@
   .chip .name { font-weight: 500; }
   .chip .close { margin-left: 6px; opacity: 0.8; }
   .chip .close:hover { opacity: 1; }
-  .small { padding: 2px 6px; }
+  .small { padding:2px 6px; font-size:0.7rem; }
   .editing { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--card-bg); }
   .rename { padding: 2px 6px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--input-bg); color: var(--text-color); }
   input[type="text"] { padding: 4px 8px; border: 1px solid var(--border-color); background: var(--input-bg); color: var(--text-color); border-radius: 4px; }
-  .action { padding: 4px 8px; }
-  .secondary { padding: 4px 8px; opacity: 0.8; }
+  /* Buttons use global .btn */
   .empty { color: var(--text-color); opacity: 0.7; font-size: 0.9em; }
   .error { color: #ff6b6b; font-size: 0.9em; }
 </style>

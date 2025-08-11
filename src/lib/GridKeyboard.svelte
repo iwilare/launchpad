@@ -10,7 +10,6 @@
 
   export let onKeyPress: (note: number) => void;
   export let onKeyRelease: (note: number) => void;
-  export let setNoteMap: (noteMap: NoteMap) => void;
 
   let colorPickerCell: Note | null = null;
 </script>
@@ -89,6 +88,7 @@
     margin: 0 auto;
     box-shadow: 0 4px 12px var(--shadow-color);
   }
+  .grid-keyboard-container { overflow-x:auto; }
 
   .grid-container {
     display: flex;
@@ -145,18 +145,14 @@
     gap: 4px;
   }
 
-  .mapping-label {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-color);
-    max-width: 52px;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    overflow: hidden;
-    pointer-events: none;
-  }
+  .mapping-label { font-size:0.7rem; font-weight:500; color:var(--text-color); max-width:52px; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; pointer-events:none; }
+
+  /* Fixed-size pads; container scrolls if viewport is narrower */
 
   .mapping-label.unmapped {
     opacity: 0.4;
   }
+
+  /* Mobile: make grid fill viewport width (minus padding) and keep square cells */
+  /* (reverted) */
 </style>

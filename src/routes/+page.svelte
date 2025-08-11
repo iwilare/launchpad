@@ -492,12 +492,12 @@
       localStorage.setItem("sound_volume", settings.volume.toString());
       localStorage.setItem("sound_waveform", settings.waveform);
     }
-  updateActiveNoteVolumes(soundState, soundSettings);
+    updateActiveNoteVolumes(soundState, soundSettings);
   }
 
   onMount(() => {
     soundState = initializeSoundState();
-  updateActiveNoteVolumes(soundState, soundSettings);
+    updateActiveNoteVolumes(soundState, soundSettings);
   });
 
   onMount(() => {
@@ -652,7 +652,7 @@
         </div>
       </div>
       <div class="device-controls">
-        <button on:click={() => initializeMIDIAccess()} class="action"
+  <button on:click={() => initializeMIDIAccess()} class="btn"
           >Refresh access</button
         >
       </div>
@@ -672,20 +672,15 @@
 
   <div class="section">
     <h3>Layouts</h3>
-    <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
-
-      <div style="margin-top: 10px; text-align: left;">
+    <div class="layouts-flex-column">
+      <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
       <LayoutManager {noteMap} onRestoreMap={setNoteMap} />
     </div>
   </div>
 
   <div class="section">
     <h3>Launchpad Layout</h3>
-    <GridKeyboard onKeyPress={(k) => playKey(k)} onKeyRelease={stopKey} {setNoteMap} {controller} {noteMap} />
-    <p class="launchpad-layout-tooltip">
-      Click note label to edit, click pad edges to play, right-click to open
-      color picker
-    </p>
+  <GridKeyboard onKeyPress={(k) => playKey(k)} onKeyRelease={stopKey} {controller} {noteMap} />
   </div>
 
   <div class="section">
@@ -699,9 +694,8 @@
           try { localStorage.setItem('colorSettings', JSON.stringify(colorSettings)); } catch {}
           setNoteMap(applyColorsToMap(settings, noteMap));
         }} />
-        <div style="display:flex; gap:6px; flex-wrap:wrap;">
-          <button on:click={sendAllKeyboardColors} class="action small">Sync Keyboard</button>
-          <button on:click={() => { setNoteMap(emptyMapping()); }} class="action small" title="Reset mappings to defaults">Reset All Mappings</button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button on:click={sendAllKeyboardColors} class="btn">Sync Keyboard</button>
         </div>
       </div>
       <div class="settings-card">
@@ -735,7 +729,7 @@
           </label>
         </div>
         <div class="sax-ignore">
-          <label for="sax-ignore-ms" class="inline-label">Transition ignore (ms)</label>
+          <label for="sax-ignore-ms" class="inline-label">Ignore rapid finger transitions (ms)</label>
           <input id="sax-ignore-ms" type="number" min="0" max="1000" step="5" bind:value={saxNoteIgnoreMs}
             on:change={(e) => {
               const v = parseInt((e.target as HTMLInputElement).value);
@@ -756,7 +750,6 @@
                 }
               }
             }} />
-          <span class="help-text">Ignore rapid finger transitions</span>
         </div>
       </div>
     </div>
@@ -764,140 +757,64 @@
 
   <div class="section">
     <MIDINoteMap {noteMap} onUpdateMap={setNoteMap} />
-    <button
-      style="margin-top: 10px;" on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))}
-      class="action">Reset Keyboard Layout</button
-    >
+    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+      <button on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))} class="btn">Reset mappings to default</button>
+      <button on:click={() => { setNoteMap(emptyMapping()); }} class="btn" title="Clear all mappings">Clear all mappings</button>
+    </div>
   </div>
 </div>
 
 <style>
-  .App {
-    text-align: center;
-    min-height: 100vh;
-    min-width: 80vh;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--bg-color);
-    color: var(--text-color);
-    transition:
-      background-color var(--transition-speed),
-      color var(--transition-speed);
-    width: 50%;
-  }
+  /* Layout containers */
+  .App { width:100%; max-width:1000px; margin:0 auto 3rem; padding:0 1rem 2rem; display:flex; flex-direction:column; gap:1.5rem; }
+  .App-header { background:var(--card-bg); padding:1rem; display:flex; align-items:center; justify-content:space-between; border:1px solid var(--border-color); border-radius:0 0 8px 8px; }
 
-  .App-header {
-    background-color: var(--card-bg);
-    padding: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    position: relative;
-    min-height: 60px;
-    border-radius: 0px 0px 5px 5px;
-    border: 1px solid var(--border-color);
-    border-top: none;
-    margin-bottom: 20px;
-  }
+  /* Sections */
+  .section { background:var(--section-bg); border:1px solid var(--border-color); border-radius:8px; padding:1rem 1rem 1.15rem; display:flex; flex-direction:column; gap:1rem; max-width:100%; }
 
-  .section {
-    margin-bottom: 20px;
-    padding: 15px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    background-color: var(--section-bg);
-    color: var(--text-color);
-  }
+  /* Forms and controls */
+  label { font-size:0.8rem; font-weight:500; margin:0; display:flex; align-items:center; gap:.4rem; }
+  input, select { font-size:0.8rem; }
+  input[type=number] { width:90px; }
 
-  h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    font-weight: 500;
-    color: var(--text-color);
-    transition: color var(--transition-speed);
-  }
+  /* Device selector layout */
+  .device-selector { display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); align-items:end; }
+  .device-group { display:flex; flex-direction:column; gap:.4rem; }
+  .device-brightness { display:flex; align-items:center; gap:.75rem; }
+  #brightness { flex:1; }
+  .brightness-value { font-size:0.7rem; min-width:28px; text-align:right; opacity:.75; }
+  .device-controls { display:flex; gap:.6rem; flex-wrap:wrap; }
 
-  h3 {
-    margin-top: 0;
-    margin-bottom: 15px;
-  }
+  /* Settings cards */
+  .settings-grid { display:grid; gap:1rem; grid-template-columns:1fr; width:100%; }
+  .settings-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:.85rem .95rem .95rem; display:flex; flex-direction:column; gap:.55rem; }
+  .radio-group { display:flex; flex-direction:column; gap:.35rem; }
+  .sax-ignore { display:flex; flex-direction:column; gap:.45rem; }
+  .sax-ignore .inline-label { font-size:0.7rem; }
+  /* .help-text intentionally removed (unused) */
 
-  .settings-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 16px;
-    width: 100%;
-  }
-  .settings-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 12px 14px 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-  }
-  .settings-card h4 { margin: 0 0 4px; font-size: 0.95rem; font-weight: 600; }
-  .settings-card label { font-size: 0.78rem; line-height: 1.2rem; display: flex; gap: 6px; align-items: center; }
-  .settings-card input[type=number] { width: 90px; }
-  .radio-group { display: flex; flex-direction: column; gap: 4px; }
-  .sax-ignore { display:flex; flex-direction:column; gap:4px; width:100%; }
-  .sax-ignore .inline-label { font-weight:500; font-size:0.75rem; }
-  .help-text { font-size:0.65rem; opacity:0.75; }
-  .action.small { align-self:flex-start; margin-top:4px; }
+  /* Launchpad hints */
+  /* .launchpad-layout-tooltip intentionally removed (unused) */
 
-  .device-selector {
-    display: flex;
-    flex-direction: row;
-    gap: 20px;
-    margin-bottom: 15px;
-    align-items: flex-end; /* This aligns all children at the bottom */
-  }
+  /* Layouts section flex wrapping */
+  .layouts-flex-column { display:flex; flex-direction:column; gap:1rem; }
 
-  .device-group {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-  }
+  /* JSON editor tweaks */
+  :global(.json-editor textarea) { max-width:100%; box-sizing:border-box; font-size:0.8rem; line-height:1.2rem; }
+  @media (max-width:600px) { :global(.json-editor textarea) { height:220px; } }
 
-  .device-brightness {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
+  /* Color settings table (shared component) */
+  :global(.color-settings-table) { font-size:0.7rem; }
+  :global(.color-settings-table th), :global(.color-settings-table td) { padding:6px 6px; }
 
-  .brightness-value {
-    min-width: 32px;
-    text-align: right;
-  }
+  /* Range inputs */
+  input[type=range] { width:100%; }
 
-  .launchpad-layout-tooltip {
-    font-size: 12px;
-    color: var(--launchpad-layout-tooltip);
-    margin-top: 5px;
-  }
+  /* Accessibility */
+  :focus-visible { outline:2px solid var(--button-bg); outline-offset:2px; }
 
-  @media (max-width: 768px) {
-    .device-selector {
-      flex-direction: column;
-    }
+  .no-devices-detected { font-size:0.75rem; opacity:.8; margin:0; }
 
-    .App-header h1 {
-      font-size: 1.5rem;
-    }
-
-    .App {
-      width: 100%;
-      padding: 0 10px;
-    }
-  }
-
-
-  .no-devices-detected {
-    color: var(--text-color);
-    margin-bottom: 0px;
-  }
+  /* Medium screens */
+  @media (min-width: 640px) { .settings-grid { grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); } }
 </style>

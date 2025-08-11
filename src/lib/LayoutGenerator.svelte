@@ -32,8 +32,8 @@ function generateIsomorphicLayout() {
 
 </script>
 
-<div class="panel">
-  <div style="display: flex; align-items: center; gap: 20px; justify-content: space-around;">
+<div class="panel layout-generator">
+  <div class="row">
     <div class="panel-element">
       <label for="start-note">Start Note:</label>
       <NoteInput
@@ -67,7 +67,7 @@ function generateIsomorphicLayout() {
       />
     </div>
     <div class="panel-element">
-    <button on:click={generateIsomorphicLayout} class="action">
+  <button on:click={generateIsomorphicLayout} class="btn">
       Generate Layout
       </button>
     </div>
@@ -75,13 +75,13 @@ function generateIsomorphicLayout() {
   <details>
   <summary class="advanced-label">Advanced controls</summary>
   <div class="panel-element">
-    <button on:click={() => { onUpdateMapping(generateFromDeltaMap(DEFAULT_DELTA_MAP, $startNote, getNoteColor)) }} class="action">
+  <button on:click={() => { onUpdateMapping(generateFromDeltaMap(DEFAULT_DELTA_MAP, $startNote, getNoteColor)) }} class="btn">
       All diatonics
     </button>
-    <button on:click={() => { onUpdateMapping(generateFromDeltaMap(EXTRA_DELTA_MAP, $startNote, getNoteColor)) }} class="action">
+  <button on:click={() => { onUpdateMapping(generateFromDeltaMap(EXTRA_DELTA_MAP, $startNote, getNoteColor)) }} class="btn">
       Two-layer diatonics
     </button>
-    <button on:click={() => { onUpdateMapping(generateSaxophoneLayoutMap(getNoteColor)) }} class="action">
+  <button on:click={() => { onUpdateMapping(generateSaxophoneLayoutMap(getNoteColor)) }} class="btn">
       Sax layout
     </button>
   </div>
@@ -89,14 +89,11 @@ function generateIsomorphicLayout() {
 </div>
 
 <style>
-
-  .panel-element {
-    display: flex;
-    vertical-align: middle;
-    gap: 8px;
-  }
-
-  .advanced-label {
-    margin-top: 5px;
-  }
+  .layout-generator { padding:.75rem .85rem; }
+  .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  .panel-element { display:flex; gap:6px; align-items:center; }
+  .panel-element input { width:70px; }
+  .btn { white-space:nowrap; }
+  details { margin-top:.5rem; }
+  .advanced-label { margin-top:5px; }
 </style>

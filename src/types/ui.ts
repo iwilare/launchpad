@@ -25,6 +25,8 @@ export type NoteMapping =
 
 export type MapData = { mapping: NoteMapping, color: MappingColor };
 
+export const DEFAULT_MAPPING_COLOR = { rest: DEFAULT_COLOR, pressed: DEFAULT_COLOR };
+
 // Map of Launchpad keys to their mappings
 export type NoteMap = Map<Key, MapData>;
 

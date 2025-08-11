@@ -145,7 +145,7 @@
     gap: 4px;
   }
 
-  .mapping-label { font-size:0.7rem; font-weight:500; color:var(--text-color); max-width:52px; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; pointer-events:none; }
+  .mapping-label { font-size:0.7rem; font-weight:500; max-width:52px; text-overflow:ellipsis; white-space:nowrap; overflow:hidden; pointer-events:none; }
 
   /* Fixed-size pads; container scrolls if viewport is narrower */
 

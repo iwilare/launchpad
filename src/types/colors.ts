@@ -142,15 +142,20 @@ export const launchpadColorToTextColorHex = (colorCode: LaunchpadColor): string 
   const hex = LaunchpadColors[colorCode];
   if (!hex) return '#ffffff';
 
-  // Parse hex color
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-
-  // Calculate relative luminance
+  // Convert sRGB to linear RGB per WCAG
+  const channel = (h: string) => {
+    const c = parseInt(h, 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  };
+  const r = channel(hex.slice(1, 3));
+  const g = channel(hex.slice(3, 5));
+  const b = channel(hex.slice(5, 7));
   const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
-  return luminance > 0.5 ? '#000000' : '#ffffff';
+  // Contrast ratio against black and white
+  const contrastBlack = (luminance + 0.05) / (0.0 + 0.05);
+  const contrastWhite = (1.0 + 0.05) / (luminance + 0.05);
+  return contrastBlack >= contrastWhite ? '#000000' : '#ffffff';
 };
 
 export const launchpadColorToString = (color: LaunchpadColor): string => {

@@ -125,9 +125,9 @@ export function isNormalKey(key: SaxKey): boolean {
 export function saxNote(pressed: Map<SaxKey, number>): NoteRepr {
   const normalKeys =
     Array.from(pressed.entries()
-                 .filter(([_, value]) => value > 0)
-                 .map(([key, _]) => key as SaxKey)
-                 .filter(isNormalKey));
+                      .filter(([_, value]) => value > 0)
+                      .map(([key, _]) => key as SaxKey)
+                      .filter(isNormalKey));
   for (const c of ORDERED_COMBOS) {
     if (c.keys.every((key, _) => normalKeys.includes(key)))
       return c.note;
@@ -139,9 +139,9 @@ export function saxPressedKeysToNote(pressed: Map<SaxKey, number>): Note {
   const n = saxNote(pressed);
   // Octave keys are additive; previously only Oct 1 was applied due to stray semicolons.
   const octave = 4 + n.octave
-    + (1 * (pressed.get('Oct 1') ?? 0))
-    + (2 * (pressed.get('Oct 2') ?? 0))
-    + (4 * (pressed.get('Oct 3') ?? 0));
+    + Math.max(1 * (pressed.get('Oct 1') ?? 0),
+               2 * (pressed.get('Oct 2') ?? 0),
+               3 * (pressed.get('Oct 3') ?? 0));
   return noteReprToNote({ ...n, octave });
 }
 

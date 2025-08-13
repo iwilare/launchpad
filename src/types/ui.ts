@@ -16,6 +16,18 @@ export const emptyController: () => Controller = () => new SvelteMap(
 
 export type MappingColor = { rest: LaunchpadColor; pressed: LaunchpadColor };
 
+export type TransposerSettings = {
+  // The base note to transpose relative to (e.g., C4=60). Effective offset = transposeNote - 60
+  transposeNote: Note;
+  // 14-bit pitch bend value [0..16383], where 8192 is center
+  pitchBend: number;
+};
+
+export const DEFAULT_TRANSPOSER: TransposerSettings = {
+  transposeNote: 60, // C4
+  pitchBend: 8192,
+};
+
 // Extended mapping types for different actions
 export type NoteMapping =
   | { type: 'note'; target: Note; }

@@ -2,8 +2,9 @@
   import { launchpadColorToHex, launchpadColorToTextColorHex } from '../types/colors';
   import { DEFAULT_COLOR, GRID_LAYOUT } from '../types/layouts';
   import { noteToString, type Note } from '../types/notes';
-  import type { Controller, NoteMap } from '../types/ui';
+  import type { Controller, NoteMap, NoteMapping, MappingColor } from '../types/ui';
   import NoteInput from './NoteInput.svelte';
+  import { SvelteMap } from 'svelte/reactivity';
 
   export let controller: Controller;
   export let noteMap: NoteMap;
@@ -11,7 +12,28 @@
   export let onKeyPress: (note: number) => void;
   export let onKeyRelease: (note: number) => void;
 
+  // Editing and play mode live inside this component
+  let playMode: boolean = true;
+  export let onUpdateMapping: (newNoteMap: NoteMap) => void;
+
+  let editingKey: Note | null = null;
+  let copyOnClick: boolean = false;
+  let copyTemplate: { mapping: NoteMapping; color: MappingColor } | null = null;
+
   let colorPickerCell: Note | null = null;
+
+  function applyEditToKey(key: Note, mapping: NoteMapping, color: MappingColor) {
+    const newMap: NoteMap = new SvelteMap(noteMap);
+    newMap.set(key, { mapping, color });
+    onUpdateMapping(newMap);
+    if (copyOnClick) {
+      copyTemplate = { mapping, color };
+    } else {
+      copyTemplate = null;
+    }
+  }
+
+  $: if (playMode) { editingKey = null; }
 </script>
 
 <div class="grid-keyboard-container">
@@ -32,10 +54,17 @@
               role="button"
               tabindex={isTopRight ? -1 : 0}
               aria-disabled={isTopRight}
-              on:mouseenter|preventDefault={(e) => { if (!isTopRight && e.buttons === 1) { onKeyPress(src); } }}
-              on:mousedown|preventDefault={(e) => { if (!isTopRight && e.buttons === 1) { onKeyPress(src); } }}
-              on:mouseup={() => { if (!isTopRight) onKeyRelease(src) }}
-              on:mouseleave={() => { if (!isTopRight) onKeyRelease(src) }}
+              on:mouseenter|preventDefault={(e) => { if (playMode && !isTopRight && e.buttons === 1) { onKeyPress(src); } }}
+              on:mousedown|preventDefault={(e) => { if (!isTopRight) { if (playMode) { if (e.buttons === 1) onKeyPress(src); } else {
+                // Edit mode behavior: copy or open editor
+                if (copyOnClick && copyTemplate) {
+                  applyEditToKey(src, copyTemplate.mapping, copyTemplate.color);
+                } else {
+                  editingKey = src;
+                }
+              } } }}
+              on:mouseup={() => { if (playMode && !isTopRight) { onKeyRelease(src); } }}
+              on:mouseleave={() => { if (playMode && !isTopRight) onKeyRelease(src) }}
               on:contextmenu|preventDefault={(e) => {
                 if (isTopRight) return;
                 e.stopPropagation();
@@ -64,6 +93,80 @@
         {/key}
       {/each}
     </div>
+
+    <div class="grid-controls">
+      <label class="inline">
+        <input type="checkbox" bind:checked={playMode} /> Play mode
+      </label>
+    </div>
+
+    {#if !playMode && editingKey !== null}
+      { @const current = noteMap.get(editingKey) }
+      <div class="grid-editor" role="region" aria-label="Grid key editor">
+        {#if current}
+          <div class="editor-row">
+            <label for="edit-type">Type:</label>
+            <select id="edit-type" value={current.mapping.type}
+              on:change={(e) => {
+                const t = (e.target as HTMLSelectElement).value;
+                let mapping: NoteMapping = current.mapping;
+                if (t === 'note') mapping = { type: 'note', target: 60 } as NoteMapping;
+                else if (t === 'pitch') mapping = { type: 'pitch', bend: 8192 } as NoteMapping;
+                else if (t === 'timbre') mapping = { type: 'timbre', waveform: 'sine' } as NoteMapping;
+                else if (t === 'sax') mapping = { type: 'sax', key: 'Play' } as NoteMapping;
+                applyEditToKey(editingKey!, mapping, current.color);
+              }}>
+              <option value="note">Note</option>
+              <option value="pitch">Pitch</option>
+              <option value="timbre">Timbre</option>
+              <option value="sax">Sax</option>
+            </select>
+          </div>
+
+          {#if current.mapping.type === 'note'}
+            <div class="editor-row">
+              <label for="edit-note">Note:</label>
+              <NoteInput id="edit-note" data={current.mapping.target}
+                onChange={(v: number) => applyEditToKey(editingKey!, { ...current!.mapping, target: v } as NoteMapping, current!.color)} />
+            </div>
+          {/if}
+
+          {#if current.mapping.type === 'timbre'}
+            <div class="editor-row">
+              <label for="edit-waveform">Waveform:</label>
+              <select id="edit-waveform" value={current.mapping.waveform}
+                on:change={(e) => applyEditToKey(editingKey!, { ...current!.mapping, waveform: (e.target as HTMLSelectElement).value as OscillatorType } as NoteMapping, current!.color)}>
+                <option value="sine">sine</option>
+                <option value="square">square</option>
+                <option value="sawtooth">sawtooth</option>
+                <option value="triangle">triangle</option>
+              </select>
+            </div>
+          {/if}
+
+          <div class="editor-row">
+            <label for="edit-rest">Rest color:</label>
+            <input id="edit-rest" type="number" min="0" max="127" value={current.color.rest}
+              on:input={(e) => applyEditToKey(editingKey!, current!.mapping, { ...current!.color, rest: parseInt((e.target as HTMLInputElement).value) })} />
+          </div>
+          <div class="editor-row">
+            <label for="edit-pressed">Pressed color:</label>
+            <input id="edit-pressed" type="number" min="0" max="127" value={current.color.pressed}
+              on:input={(e) => applyEditToKey(editingKey!, current!.mapping, { ...current!.color, pressed: parseInt((e.target as HTMLInputElement).value) })} />
+          </div>
+          <div class="editor-actions">
+            <label class="inline"><input type="checkbox" bind:checked={copyOnClick}
+              on:change={() => { if (copyOnClick && current) copyTemplate = { mapping: current.mapping, color: current.color }; }} /> Copy key settings on click</label>
+            <button class="btn" on:click={() => { editingKey = null; }}>Close</button>
+          </div>
+        {:else}
+          <div class="editor-row">Unmapped key</div>
+          <div class="editor-actions">
+            <button class="btn" on:click={() => { editingKey = null; }}>Close</button>
+          </div>
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -89,6 +192,8 @@
     box-shadow: 0 4px 12px var(--shadow-color);
   }
   .grid-keyboard-container { overflow-x:auto; }
+
+  .grid-controls { display:flex; justify-content:center; }
 
   .grid-container {
     display: flex;
@@ -155,4 +260,8 @@
 
   /* Mobile: make grid fill viewport width (minus padding) and keep square cells */
   /* (reverted) */
+
+  .grid-editor { margin: 10px auto 0; padding: .6rem .7rem; border: 1px solid var(--border-color); border-radius: 8px; background: var(--card-bg); display:flex; flex-direction:column; gap:.5rem; max-width: 600px; }
+  .editor-row { display:flex; align-items:center; gap:.5rem; }
+  .editor-actions { display:flex; align-items:center; justify-content:space-between; gap:.6rem; }
 </style>

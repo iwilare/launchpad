@@ -91,6 +91,7 @@ function generateIsomorphicLayout() {
 <style>
   .layout-generator { padding:.75rem .85rem; }
   .row { display:flex; flex-wrap:wrap; gap:14px; align-items:flex-end; }
+  .row-spacer { flex:1 1 auto; }
   .panel-element { display:flex; gap:6px; align-items:center; }
   .panel-element input { width:70px; }
   .btn { white-space:nowrap; }

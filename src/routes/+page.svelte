@@ -4,6 +4,7 @@
   import { onMount } from "svelte";
   import MIDINoteMap from "$lib/JsonEditor.svelte";
   import SoundGenerator from "$lib/SoundGenerator.svelte";
+  import Transposer from "$lib/Transposer.svelte";
   import DefaultColorsSettings from "$lib/DefaultColorsSettings.svelte";
   import ThemeToggle from "$lib/ThemeToggle.svelte";
   import GridKeyboard from "$lib/GridKeyboard.svelte";
@@ -15,13 +16,14 @@
     niceNoteMap,
     forEachNotePressed,
     emptyController} from "../types/ui";
-  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, updateActiveNoteVolumes, type SoundState, type SoundSettings, } from "../types/sound";
+  import { emptySoundState, initializeSoundState, pressNoteAudioSynth, releaseNoteAudioSynth, stopEverythingAudioSynth, updateActiveNoteVolumes, setPitchBendSynth, type SoundState, type SoundSettings, } from "../types/sound";
   import { SvelteMap } from "svelte/reactivity";
   import type { Note } from "../types/notes";
   import type { Key } from "../types/ui";
+  import { DEFAULT_TRANSPOSER, type TransposerSettings } from "../types/ui";
   import { noteToString, areSameNote } from "../types/notes";
   import { NORMAL_KEYS, OCTAVE_KEYS, saxPressedKeysToNote, type SaxKey } from "../types/saxophone";
-  import { DEFAULT_COLOR, DEFAULT_MAPPINGS, applyColorsToMap, emptyMapping } from "../types/layouts";
+  import { DEFAULT_COLOR, DEFAULT_MAPPINGS, applyColorsToMap, emptyMapping, generateSaxophoneLayoutMap } from "../types/layouts";
 
   let midiAccess: MIDIAccess | null = null;
   let selectedInputDevice: string | null = null;
@@ -46,6 +48,8 @@
   let activeNotes: NoteState = new SvelteMap();
   let controller: Controller = emptyController();
   let soundState: SoundState = emptySoundState();
+  let transposer: TransposerSettings = DEFAULT_TRANSPOSER;
+  // Play mode and editor now live inside GridKeyboard
 
   let deviceSettings: DeviceSettings = {
     brightness: 127,
@@ -66,6 +70,16 @@
     attackTime: 10,
     releaseTime: 100,
   };
+
+  function setTransposerSettings(s: TransposerSettings) {
+    transposer = s;
+    try {
+      localStorage.setItem("transpose_note", String(s.transposeNote));
+      localStorage.setItem("pitch_bend14", String(s.pitchBend));
+    } catch {}
+    // Send/update pitch bend immediately
+    applyPitchBend(s.pitchBend);
+  }
 
   /* MIDI logic */
   function connectToInputDevice(deviceId: string) {
@@ -114,12 +128,16 @@
         stopEverythingAudio();
         selectedOutputDevice = deviceId;
         localStorage.setItem("midiOutputDevice", selectedOutputDevice);
+        // ensure pitch bend state is applied to the newly selected device
+        applyPitchBend(transposer.pitchBend);
       } else {
         return "Requested output device not found";
       }
     } else {
       selectedOutputDevice = 42;
       localStorage.setItem("midiOutputDevice", 'default');
+      // apply bend to built-in synth
+      applyPitchBend(transposer.pitchBend);
       return;
     }
   }
@@ -240,12 +258,21 @@
     }
   }
 
+  function transposeOut(note: Note): Note {
+    // Offset computed as difference from center C4=60
+    const offset = transposer.transposeNote - 60;
+    const n = note + offset;
+    return Math.max(0, Math.min(127, n));
+  }
+
   function pressNoteAudio(note: Note, velocity: number = 127) {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
-        sendMIDIPacket(selectedOutputDevice, [0x90, note, velocity]);
+        const tn = transposeOut(note);
+        sendMIDIPacket(selectedOutputDevice, [0x90, tn, velocity]);
       } else {
-        pressNoteAudioSynth(soundState, soundSettings, note, velocity);
+        const tn = transposeOut(note);
+        pressNoteAudioSynth(soundState, soundSettings, tn, velocity);
       }
     }
   }
@@ -253,10 +280,25 @@
   function releaseNoteAudio(note: Note) {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
-        sendMIDIPacket(selectedOutputDevice, [0x80, note, 0]);
+        const tn = transposeOut(note);
+        sendMIDIPacket(selectedOutputDevice, [0x80, tn, 0]);
       } else {
-        releaseNoteAudioSynth(soundState, soundSettings, note);
+        const tn = transposeOut(note);
+        releaseNoteAudioSynth(soundState, soundSettings, tn);
       }
+    }
+  }
+
+  function applyPitchBend(bend14: number) {
+    if (!selectedOutputDevice) return;
+    if (typeof selectedOutputDevice === 'string') {
+      // MIDI pitch bend message: 0xE0, LSB, MSB
+      const v = Math.max(0, Math.min(16383, Math.floor(bend14)));
+      const lsb = v & 0x7F;
+      const msb = (v >> 7) & 0x7F;
+      sendMIDIPacket(selectedOutputDevice, [0xE0, lsb, msb]);
+    } else {
+      setPitchBendSynth(soundState, bend14);
     }
   }
 
@@ -476,6 +518,8 @@
     localStorage.setItem("noteMap", niceify(keyMap));
   }
 
+  // Editor-related logic moved to GridKeyboard
+
   // Function to update brightness, persist, and send MIDI
   function setBrightness(brightness: number) : string | null {
     deviceSettings = { ...deviceSettings, brightness };
@@ -562,6 +606,14 @@
         volume: typeof volume === 'string' ? parseFloat(volume) : soundSettings.volume,
         waveform: typeof waveform === 'string' ? waveform as OscillatorType : soundSettings.waveform,
       };
+      const tnote = localStorage.getItem("transpose_note");
+      const pb = localStorage.getItem("pitch_bend14");
+      transposer = {
+        transposeNote: typeof tnote === 'string' ? Math.max(0, Math.min(127, parseInt(tnote))) : transposer.transposeNote,
+        pitchBend: typeof pb === 'string' ? Math.max(0, Math.min(16383, parseInt(pb))) : transposer.pitchBend,
+      };
+      // Ensure current output reflects saved bend
+      applyPitchBend(transposer.pitchBend);
     }
   });
 
@@ -672,16 +724,14 @@
   {/if}
 
   <div class="section">
-    <h3>Layouts</h3>
-    <div class="layouts-flex-column">
-      <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
-      <LayoutManager noteMap={keyMap} onRestoreMap={setNoteMap} />
-    </div>
+    <h3>Transposer & Pitch Bend</h3>
+  <Transposer settings={transposer} onTransposerChange={setTransposerSettings} />
   </div>
+
 
   <div class="section">
     <h3>Launchpad Layout</h3>
-  <GridKeyboard onKeyPress={(k) => playKey(k)} onKeyRelease={stopKey} {controller} noteMap={keyMap} />
+    <GridKeyboard onKeyPress={(k) => playKey(k)} onKeyRelease={stopKey} {controller} noteMap={keyMap} onUpdateMapping={setNoteMap} />
   </div>
 
   <div class="section">
@@ -696,7 +746,7 @@
           setNoteMap(applyColorsToMap(settings, keyMap));
         }} />
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button on:click={sendAllKeyboardColors} class="btn">Sync Keyboard</button>
+          <button on:click={sendAllKeyboardColors} class="btn" style="width:100%">Sync Keyboard</button>
         </div>
       </div>
       <div class="settings-card">
@@ -757,10 +807,24 @@
   </div>
 
   <div class="section">
-    <MIDINoteMap noteMap={keyMap} onUpdateMap={setNoteMap} />
-    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
-      <button on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))} class="btn">Reset mappings to default</button>
-      <button on:click={() => { setNoteMap(emptyMapping()); }} class="btn" title="Clear all mappings">Clear all mappings</button>
+    <h3>Layouts</h3>
+    <div class="layouts-grid">
+      <div class="layouts-left">
+        <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
+      </div>
+      <div class="layouts-right">
+        <div class="sax-panel">
+          <button class="btn sax-big" on:click={() => { setNoteMap(applyColorsToMap(colorSettings, generateSaxophoneLayoutMap((m) => colorFromSettings(colorSettings, m)))) }}>Sax layout</button>
+        </div>
+      </div>
+    </div>
+    <div class="layouts-flex-column">
+      <LayoutManager noteMap={keyMap} onRestoreMap={setNoteMap} />
+      <MIDINoteMap noteMap={keyMap} onUpdateMap={setNoteMap} />
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+        <button on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))} class="btn">Reset mappings to default</button>
+        <button on:click={() => { setNoteMap(emptyMapping()); }} class="btn" title="Clear all mappings">Clear all mappings</button>
+      </div>
     </div>
   </div>
 </div>
@@ -792,6 +856,7 @@
   .radio-group { display:flex; flex-direction:column; gap:.35rem; }
   .sax-ignore { display:flex; flex-direction:column; gap:.45rem; }
   .sax-ignore .inline-label { font-size:0.7rem; }
+  /* Grid keyboard now owns play mode/editor */
   /* .help-text intentionally removed (unused) */
 
   /* Launchpad hints */
@@ -799,6 +864,11 @@
 
   /* Layouts section flex wrapping */
   .layouts-flex-column { display:flex; flex-direction:column; gap:1rem; }
+  .layouts-grid { display:grid; grid-template-columns: 1fr minmax(180px, 260px); gap: 12px; align-items:stretch; }
+  .layouts-left, .layouts-right { display:flex; }
+  .layouts-left > :global(.panel) { flex:1; }
+  .sax-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:.85rem; display:flex; align-items:stretch; justify-content:center; }
+  .sax-big { width:100%; height:100%; min-height:84px; font-size:0.9rem; }
 
   /* JSON editor tweaks */
   :global(.json-editor textarea) { max-width:100%; box-sizing:border-box; font-size:0.8rem; line-height:1.2rem; }
@@ -810,6 +880,9 @@
 
   /* Range inputs */
   input[type=range] { width:100%; }
+  .edit-popover { position:absolute; z-index:1000; background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:.6rem; box-shadow:0 4px 12px var(--shadow-color); display:flex; flex-direction:column; gap:.4rem; }
+  .edit-row { display:flex; align-items:center; gap:.5rem; }
+  .edit-actions { display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-top:.4rem; }
 
   /* Accessibility */
   :focus-visible { outline:2px solid var(--button-bg); outline-offset:2px; }

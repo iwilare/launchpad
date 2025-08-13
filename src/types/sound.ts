@@ -13,6 +13,9 @@ export interface SoundSettings {
 
 export type SoundState = {
     audioContext: AudioContext | null;
+    // 14-bit pitch bend value [0..16383]; 8192 center. Applies globally for built-in synth
+    // Range mapping assumes ±2 semitones span (can be tuned later if needed)
+    pitchBend: number;
     activeNotes: Map<Note, {
         oscillator: OscillatorNode,
         gainNode: GainNode,
@@ -22,7 +25,7 @@ export type SoundState = {
 }
 
 export function emptySoundState(): SoundState {
-    return { audioContext: null, activeNotes: new Map() }
+    return { audioContext: null, pitchBend: 8192, activeNotes: new Map() }
 }
 
 export function initializeSoundState(): SoundState {
@@ -71,7 +74,10 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
         const gainNode = ss.audioContext.createGain();
 
         oscillator.type = sc.waveform;
-        oscillator.frequency.setValueAtTime(440 * Math.pow(2, (note - 69) / 12), ss.audioContext.currentTime);
+    const bendSemis = (ss.pitchBend - 8192) / 8192 * 2; // ±2 semitones
+    const baseFreq = 440 * Math.pow(2, (note - 69) / 12);
+    const bentFreq = baseFreq * Math.pow(2, bendSemis / 12);
+    oscillator.frequency.setValueAtTime(bentFreq, ss.audioContext.currentTime);
 
     const velNorm = velocity > 1 ? Math.min(1, velocity / 127) : Math.max(0, velocity);
     const target = Math.max(EXPONENTIAL_VALUE, velNorm * sc.volume * VOLUME_MULTIPLIER);
@@ -87,4 +93,21 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
     ss.activeNotes.set(note, { ...n, number: n.number + 1 });
     }
     return null;
+}
+
+// Update current pitch bend value and retune active oscillators
+export function setPitchBendSynth(ss: SoundState, bend14: number) {
+    const v = Math.max(0, Math.min(16383, Math.floor(bend14)));
+    ss.pitchBend = v;
+    if (!ss.audioContext) return;
+    const now = ss.audioContext.currentTime;
+    const bendSemis = (ss.pitchBend - 8192) / 8192 * 2; // ±2 semitones
+    ss.activeNotes.forEach((n, note) => {
+        const baseFreq = 440 * Math.pow(2, (note - 69) / 12);
+        const bentFreq = baseFreq * Math.pow(2, bendSemis / 12);
+        try {
+            n.oscillator.frequency.cancelScheduledValues(now);
+        } catch {}
+        n.oscillator.frequency.setTargetAtTime(bentFreq, now, 0.01);
+    });
 }

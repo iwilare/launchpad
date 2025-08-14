@@ -808,19 +808,16 @@
 
   <div class="section">
     <h3>Layouts</h3>
-    <div class="layouts-grid">
-      <div class="layouts-left">
-        <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
-      </div>
-      <div class="layouts-right">
-        <div class="sax-panel">
-          <button class="btn sax-big" on:click={() => { setNoteMap(applyColorsToMap(colorSettings, generateSaxophoneLayoutMap((m) => colorFromSettings(colorSettings, m)))) }}>Sax layout</button>
+  <LayoutGenerator onUpdateMapping={setNoteMap} getNoteColor={m => colorFromSettings(colorSettings, m)} />
+    <div class="layouts-flex-column">
+      <div class="layouts-tools">
+        <div class="tool-card">
+          <LayoutManager noteMap={keyMap} onRestoreMap={setNoteMap} />
+        </div>
+        <div class="tool-card">
+          <MIDINoteMap noteMap={keyMap} onUpdateMap={setNoteMap} />
         </div>
       </div>
-    </div>
-    <div class="layouts-flex-column">
-      <LayoutManager noteMap={keyMap} onRestoreMap={setNoteMap} />
-      <MIDINoteMap noteMap={keyMap} onUpdateMap={setNoteMap} />
       <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
         <button on:click={() => setNoteMap(applyColorsToMap(colorSettings, DEFAULT_MAPPINGS))} class="btn">Reset mappings to default</button>
         <button on:click={() => { setNoteMap(emptyMapping()); }} class="btn" title="Clear all mappings">Clear all mappings</button>
@@ -862,13 +859,10 @@
   /* Launchpad hints */
   /* .launchpad-layout-tooltip intentionally removed (unused) */
 
-  /* Layouts section flex wrapping */
+  /* Layouts section */
   .layouts-flex-column { display:flex; flex-direction:column; gap:1rem; }
-  .layouts-grid { display:grid; grid-template-columns: 1fr minmax(180px, 260px); gap: 12px; align-items:stretch; }
-  .layouts-left, .layouts-right { display:flex; }
-  .layouts-left > :global(.panel) { flex:1; }
-  .sax-panel { background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:.85rem; display:flex; align-items:stretch; justify-content:center; }
-  .sax-big { width:100%; height:100%; min-height:84px; font-size:0.9rem; }
+  .layouts-tools { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); }
+  .tool-card { background:var(--card-bg); border:1px solid var(--border-color); border-radius:6px; padding:.85rem; }
 
   /* JSON editor tweaks */
   :global(.json-editor textarea) { max-width:100%; box-sizing:border-box; font-size:0.8rem; line-height:1.2rem; }

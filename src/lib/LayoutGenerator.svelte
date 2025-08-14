@@ -72,20 +72,12 @@ function generateIsomorphicLayout() {
       </button>
     </div>
   </div>
-  <details>
-  <summary class="advanced-label">Advanced controls</summary>
-  <div class="panel-element">
-  <button on:click={() => { onUpdateMapping(generateFromDeltaMap(DEFAULT_DELTA_MAP, $startNote, getNoteColor)) }} class="btn">
-      All diatonics
-    </button>
-  <button on:click={() => { onUpdateMapping(generateFromDeltaMap(EXTRA_DELTA_MAP, $startNote, getNoteColor)) }} class="btn">
-      Two-layer diatonics
-    </button>
-  <button on:click={() => { onUpdateMapping(generateSaxophoneLayoutMap(getNoteColor)) }} class="btn">
-      Sax layout
-    </button>
+  <div class="advanced-row">
+  <div class="subtitle">Presets</div>
+    <button class="btn" on:click={() => { onUpdateMapping(generateSaxophoneLayoutMap(getNoteColor)) }}>Sax layout</button>
+    <button class="btn" on:click={() => { onUpdateMapping(generateFromDeltaMap(DEFAULT_DELTA_MAP, $startNote, getNoteColor)) }}>All diatonics</button>
+    <button class="btn" on:click={() => { onUpdateMapping(generateFromDeltaMap(EXTRA_DELTA_MAP, $startNote, getNoteColor)) }}>Two-layer diatonics</button>
   </div>
-</details>
 </div>
 
 <style>
@@ -95,6 +87,6 @@ function generateIsomorphicLayout() {
   .panel-element { display:flex; gap:6px; align-items:center; }
   .panel-element input { width:70px; }
   .btn { white-space:nowrap; }
-  details { margin-top:.5rem; }
-  .advanced-label { margin-top:5px; }
+  .advanced-row { margin-top:.6rem; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .subtitle { font-size:0.8rem; opacity:0.8; margin-right:4px; }
 </style>

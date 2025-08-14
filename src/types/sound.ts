@@ -1,4 +1,5 @@
 import type { Note } from "./notes";
+import { bend14ToSemitones } from "./notes";
 
 export const VOLUME_MULTIPLIER = 0.15;
 
@@ -74,7 +75,7 @@ export function pressNoteAudioSynth(ss: SoundState, sc: SoundSettings, note: num
         const gainNode = ss.audioContext.createGain();
 
         oscillator.type = sc.waveform;
-    const bendSemis = (ss.pitchBend - 8192) / 8192 * 2; // ±2 semitones
+    const bendSemis = bend14ToSemitones(ss.pitchBend);
     const baseFreq = 440 * Math.pow(2, (note - 69) / 12);
     const bentFreq = baseFreq * Math.pow(2, bendSemis / 12);
     oscillator.frequency.setValueAtTime(bentFreq, ss.audioContext.currentTime);
@@ -101,7 +102,7 @@ export function setPitchBendSynth(ss: SoundState, bend14: number) {
     ss.pitchBend = v;
     if (!ss.audioContext) return;
     const now = ss.audioContext.currentTime;
-    const bendSemis = (ss.pitchBend - 8192) / 8192 * 2; // ±2 semitones
+    const bendSemis = bend14ToSemitones(ss.pitchBend);
     ss.activeNotes.forEach((n, note) => {
         const baseFreq = 440 * Math.pow(2, (note - 69) / 12);
         const bentFreq = baseFreq * Math.pow(2, bendSemis / 12);

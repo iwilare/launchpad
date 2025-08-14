@@ -123,3 +123,18 @@ export const isBlackNote = (note: Note): boolean => {
 export const areSameNote = (note1: Note, note2: Note): boolean => {
   return noteToNoteRepr(note1).name === noteToNoteRepr(note2).name;
 };
+
+// Pitch bend helpers (shared across UI and synth)
+export const CENTER_BEND_14 = 8192;
+
+// Convert 14-bit MIDI pitch bend [0..16383] to semitones, given a range (default ±2 st)
+export function bend14ToSemitones(bend14: number, rangeSemitones: number = 2): number {
+  const v = Math.max(0, Math.min(16383, Math.floor(bend14)));
+  return ((v - CENTER_BEND_14) / 8192) * rangeSemitones;
+}
+
+// Convert semitones to 14-bit MIDI pitch bend [0..16383]
+export function semitonesToBend14(semitones: number, rangeSemitones: number = 2): number {
+  const raw = CENTER_BEND_14 + (semitones / rangeSemitones) * 8192;
+  return Math.max(0, Math.min(16383, Math.round(raw)));
+}

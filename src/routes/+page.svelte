@@ -39,7 +39,7 @@
   let currentSaxNote: number | null = null;
   let currentSaxVelocity: number = 127;
   // Time window (ms) during which sax note changes are ignored to avoid transition artifacts
-  let saxNoteIgnoreMs: number = 45;
+  let saxNoteIgnoreMs: number = 10;
   // Sax play mode: 'press' requires Play key to sound; 'combo' auto-sounds on fingering.
   let saxMode: 'press' | 'combo' = 'press';
   // Pending scheduled change while Play is held
@@ -72,6 +72,7 @@
   };
 
   function setTransposerSettings(s: TransposerSettings) {
+    const prev = transposer;
     transposer = s;
     try {
       localStorage.setItem("transpose_note", String(s.transposeNote));
@@ -79,6 +80,10 @@
     } catch {}
     // Send/update pitch bend immediately
     applyPitchBend(s.pitchBend);
+    // If transpose changed, stop all currently sounding notes to avoid hangs
+    if (!prev || prev.transposeNote !== s.transposeNote) {
+      stopEverythingAudio();
+    }
   }
 
   /* MIDI logic */
@@ -251,7 +256,9 @@
   function stopEverythingAudio() {
     if(selectedOutputDevice) {
       if(typeof selectedOutputDevice === 'string') {
-        forEachNotePressed(activeNotes, releaseNoteAudio)
+        forEachNotePressed(activeNotes, releaseNoteAudio);
+        // Clear local active notes state to stay in sync
+        activeNotes.clear();
       } else {
         stopEverythingAudioSynth(soundState);
       }

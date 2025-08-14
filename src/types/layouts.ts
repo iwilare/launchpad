@@ -8,10 +8,10 @@ export const SAX_START_NOTE: Note = 58; // Bb3
 export const DEFAULT_COLOR = 0x00;
 export const DEFAULT_ANTI_COLOR = 0x25;
 
-export const DEFAULT_WHITE_REST: LaunchpadColor = 0x00;
-export const DEFAULT_WHITE_PRESSED: LaunchpadColor = 0x25;
-export const DEFAULT_BLACK_REST: LaunchpadColor = 0x03;
-export const DEFAULT_BLACK_PRESSED: LaunchpadColor = 0x24;
+export const DEFAULT_WHITE_REST: LaunchpadColor = 0x24;
+export const DEFAULT_WHITE_PRESSED: LaunchpadColor = 0x28;
+export const DEFAULT_BLACK_REST: LaunchpadColor = 0x6B;
+export const DEFAULT_BLACK_PRESSED: LaunchpadColor = 0x76;
 
 export const DEFAULT_SAX_REST: LaunchpadColor = 0x23;
 export const DEFAULT_SAX_PRESSED: LaunchpadColor = 0x27;
